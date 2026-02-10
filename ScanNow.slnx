@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="ScanNow.Application/ScanNow.Application.csproj" />
+    <Project Path="ScanNow.Domain/ScanNow.Domain.csproj" />
+    <Project Path="ScanNow.Infrastructure/ScanNow.Infrastructure.csproj" />
+    <Project Path="ScanNow.Web/ScanNow.Web.csproj" />
+  </Folder>
+</Solution>

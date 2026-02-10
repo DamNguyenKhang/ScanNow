@@ -1,0 +1,6 @@
+@ScanNow.Web_HostAddress = http://localhost:5222
+
+GET {{ScanNow.Web_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,35 @@
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using ScanNow.Domain.Abstractions.External;
+using ScanNow.Domain.Entities;
+using ScanNow.Infrastructure.External;
+
+namespace ScanNow.Infrastructure
+{
+    public static class DependencyInjection
+    {
+        public static IServiceCollection AddInfrastructure(this IServiceCollection services)
+        {
+            services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
+            {
+                options.SignIn.RequireConfirmedEmail = true;
+            })
+            .AddEntityFrameworkStores<ApplicationDbContext>()
+            .AddDefaultTokenProviders();
+
+            services.AddScoped<IEmailService, SmtpEmailService>();
+            services.AddScoped<IPaymentService, PayOSPaymentService>();
+            services.AddScoped<IFileStorageService, CloudinaryStorageService>();
+            return services;
+        }
+
+        public static IServiceCollection AddDatabase(this IServiceCollection services, string connectionString)
+        {
+            services.AddDbContext<ApplicationDbContext>(options =>
+                options.UseNpgsql(connectionString));
+
+            return services;
+        }
+    }
+}
