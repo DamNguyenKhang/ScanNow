@@ -1,9 +1,6 @@
-﻿using AutoMapper;
+using AutoMapper;
 using ScanNow.Application.Features.Auth.DTOs.Response;
 using ScanNow.Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace ScanNow.Application.Mappers
 {
@@ -11,10 +8,10 @@ namespace ScanNow.Application.Mappers
     {
         public UserMapper()
         {
-            //CreateMap<SignUpUserRequest, User>()
-            //.ForMember(dest => dest.PasswordHash, opt => opt.MapFrom(src => src.Password));
-
-            CreateMap<ApplicationUser, UserResponse>();
+            CreateMap<ApplicationUser, UserResponse>()
+                .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.UserName))
+                .ForMember(dest => dest.IsEmailVerified, opt => opt.MapFrom(src => src.EmailConfirmed))
+                .ForMember(dest => dest.Role, opt => opt.Ignore());
         }
     }
 }

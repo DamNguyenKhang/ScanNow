@@ -9,12 +9,13 @@ using ScanNow.Web.Configurations;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
-var connectionString = builder.Configuration.GetConnectionString("ScanNowDB");
 
 // Add services to the container.
 
 DotNetEnv.Env.Load();
 builder.Configuration.AddEnvironmentVariables();
+var connectionString = builder.Configuration.GetConnectionString("ScanNowDB")
+    ?? throw new InvalidOperationException("Connection string 'ScanNowDB' is not configured.");
 
 builder.Services.AddControllers();
 
@@ -55,6 +56,7 @@ builder.Services.AddHttpContextAccessor();
 
 builder.Services
     .AddDatabase(connectionString)
+    .AddExceptionHandler()
     .AddPresentation()
     .AddApplication()
     .AddInfrastructure()

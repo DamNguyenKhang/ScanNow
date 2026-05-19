@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ScanNow.Application.Abstractions;
 using ScanNow.Application.Exceptions;
 using ScanNow.Application.Features.Auth;
+using ScanNow.Application.Features.SessionUser;
 using System.Reflection;
 
 namespace ScanNow.Application
@@ -16,6 +17,7 @@ namespace ScanNow.Application
             services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
 
             services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<ICurrentUserService, CurrentUserService>();
             return services;
         }
     }

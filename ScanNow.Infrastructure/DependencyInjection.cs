@@ -2,8 +2,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ScanNow.Domain.Abstractions.External;
+using ScanNow.Domain.Abstractions.Persistence;
 using ScanNow.Domain.Entities;
 using ScanNow.Infrastructure.External;
+using ScanNow.Infrastructure.Repositories;
 
 namespace ScanNow.Infrastructure
 {
@@ -11,7 +13,7 @@ namespace ScanNow.Infrastructure
     {
         public static IServiceCollection AddInfrastructure(this IServiceCollection services)
         {
-            services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
+            services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
             {
                 options.SignIn.RequireConfirmedEmail = true;
             })
@@ -21,6 +23,8 @@ namespace ScanNow.Infrastructure
             services.AddScoped<IEmailService, SmtpEmailService>();
             services.AddScoped<IPaymentService, PayOSPaymentService>();
             services.AddScoped<IFileStorageService, CloudinaryStorageService>();
+            services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
             return services;
         }
 
