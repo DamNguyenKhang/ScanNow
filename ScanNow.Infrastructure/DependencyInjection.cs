@@ -24,6 +24,7 @@ namespace ScanNow.Infrastructure
             services.AddScoped<IPaymentService, PayOSPaymentService>();
             services.AddScoped<IFileStorageService, CloudinaryStorageService>();
             services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+            services.AddScoped<IUserManagementRepository, UserManagementRepository>();
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             return services;
         }

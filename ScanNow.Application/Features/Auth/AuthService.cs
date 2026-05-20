@@ -363,10 +363,10 @@ namespace ScanNow.Application.Features.Auth
                 new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
                 new(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new(ClaimTypes.Email, user.Email ?? string.Empty),
-                new(ClaimTypes.Name, user.UserName ?? string.Empty)
+                new("name", user.UserName ?? string.Empty)
             };
 
-            claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+            claims.AddRange(roles.Select(role => new Claim("role", role)));
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
