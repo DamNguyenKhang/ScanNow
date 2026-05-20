@@ -6,6 +6,8 @@ using ScanNow.Application;
 using ScanNow.Infrastructure;
 using ScanNow.Web;
 using ScanNow.Web.Configurations;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -32,23 +34,6 @@ builder.Services.AddCors(options =>
                         .AllowCredentials());
 });
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                .AddJwtBearer(options =>
-                {
-                    options.TokenValidationParameters = new TokenValidationParameters
-                    {
-                        ValidateIssuer = true,
-                        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-                        ValidateAudience = true,
-                        ValidAudience = builder.Configuration["Jwt:Audience"],
-                        ValidateLifetime = true,
-                        IssuerSigningKey = new SymmetricSecurityKey(
-                            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:SecretKey"]!)),
-                        ValidateIssuerSigningKey = true
-                    };
-                    options.Events = new JwtEvents();
-                });
-
 builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
 {
     options.TokenLifespan = TimeSpan.FromMinutes(15);
@@ -65,6 +50,38 @@ builder.Services
     .AddApplication()
     .AddInfrastructure()
     ;
+
+// Disable default claim type mapping so JWT claims are read as-is.
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+
+// Register JWT after Identity so Bearer remains the default auth scheme for API endpoints.
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.MapInboundClaims = false;
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+                        ValidateAudience = true,
+                        ValidAudience = builder.Configuration["Jwt:Audience"],
+                        ValidateLifetime = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(
+                            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:SecretKey"]!)),
+                        ValidateIssuerSigningKey = true,
+                        RoleClaimType = "role",
+                        NameClaimType = "name"
+                    };
+                    options.Events = new JwtEvents();
+                });
+
+builder.Services.Configure<Microsoft.AspNetCore.Authentication.AuthenticationOptions>(options =>
+{
+    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultForbidScheme = JwtBearerDefaults.AuthenticationScheme;
+});
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
