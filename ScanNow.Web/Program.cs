@@ -12,7 +12,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-DotNetEnv.Env.Load();
+// Load .env from project directory first, then solution root as fallback
+var envPath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
+if (!File.Exists(envPath))
+    envPath = Path.Combine(AppContext.BaseDirectory, ".env");
+DotNetEnv.Env.Load(envPath);
 builder.Configuration.AddEnvironmentVariables();
 var connectionString = builder.Configuration.GetConnectionString("ScanNowDB")
     ?? throw new InvalidOperationException("Connection string 'ScanNowDB' is not configured.");
@@ -85,5 +89,20 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Seed roles and initial data
+try
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var services = scope.ServiceProvider;
+        await ScanNow.Infrastructure.Data.DbContextSeeder.SeedAsync(services);
+    }
+}
+catch (Exception ex)
+{
+    // Log seeding error to console; do not stop the app startup
+    Console.WriteLine($"Warning: seeding failed - {ex.Message}");
+}
 
 app.Run();
