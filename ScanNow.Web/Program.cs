@@ -29,7 +29,10 @@ builder.Services.AddControllers();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowClient",
-        policy => policy.WithOrigins(builder.Configuration["App:FrontendBaseUrl"] ?? "http://localhost:5173")
+        policy => policy.WithOrigins(
+                            builder.Configuration["App:FrontendBaseUrl"] ?? "http://localhost:5173",
+                            "http://localhost:3000",
+                            "http://localhost:3001")
                         .AllowAnyHeader()
                         .AllowAnyMethod()
                         .AllowCredentials());
