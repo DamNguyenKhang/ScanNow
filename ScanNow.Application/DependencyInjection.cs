@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ScanNow.Application.Abstractions;
 using ScanNow.Application.Exceptions;
 using ScanNow.Application.Features.Auth;
+using ScanNow.Application.Features.RestaurantManagement;
 using ScanNow.Application.Features.SessionUser;
 using ScanNow.Application.Features.UserManagement;
 using System.Reflection;
@@ -19,6 +20,7 @@ namespace ScanNow.Application
 
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IUserManagementService, UserManagementService>();
+            services.AddScoped<IRestaurantManagementService, RestaurantManagementService>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
             return services;
         }
