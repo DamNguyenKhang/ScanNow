@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using ScanNow.Application;
@@ -95,7 +96,8 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsProduction())
+    app.UseHttpsRedirection();
 
 app.UseExceptionHandler();
 
@@ -106,6 +108,13 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Auto migrate on startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ScanNow.Infrastructure.ApplicationDbContext>();
+    await db.Database.MigrateAsync();
+}
 
 // Seed roles and initial data
 try
