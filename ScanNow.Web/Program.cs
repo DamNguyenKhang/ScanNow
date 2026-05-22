@@ -26,13 +26,27 @@ var connectionString = builder.Configuration.GetConnectionString("ScanNowDB")
 
 builder.Services.AddControllers();
 
+var allowedOrigins = new[]
+{
+    builder.Configuration["App:FrontendBaseUrl"],
+    builder.Configuration["App:ClientUrl"],
+    builder.Configuration["App:AllowedOrigins"],
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:3001"
+}
+    .Where(value => !string.IsNullOrWhiteSpace(value))
+    .SelectMany(value => value!.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+    .Select(origin => Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+        ? uri.GetLeftPart(UriPartial.Authority)
+        : origin.TrimEnd('/'))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowClient",
-        policy => policy.WithOrigins(
-                            builder.Configuration["App:FrontendBaseUrl"] ?? "http://localhost:5173",
-                            "http://localhost:3000",
-                            "http://localhost:3001")
+        policy => policy.WithOrigins(allowedOrigins)
                         .AllowAnyHeader()
                         .AllowAnyMethod()
                         .AllowCredentials());
