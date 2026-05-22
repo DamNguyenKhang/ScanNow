@@ -35,6 +35,7 @@ namespace ScanNow.Application.Abstractions
         Task<IReadOnlyList<MenuItemResponse>> BulkUpdateMyAvailabilityAsync(Guid branchId, BulkAvailabilityRequest request);
 
         Task<PagedResult<MenuCategoryResponse>> GetPublicBranchMenuAsync(Guid branchId, MenuQuery query);
+        Task<IReadOnlyList<CategoryResponse>> GetPublicBranchCategoriesAsync(Guid branchId);
         Task<MenuItemResponse> GetPublicMenuItemAsync(Guid branchId, Guid id);
     }
 }

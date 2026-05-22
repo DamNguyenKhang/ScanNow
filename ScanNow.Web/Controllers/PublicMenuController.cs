@@ -26,6 +26,16 @@ namespace ScanNow.Web.Controllers
             };
         }
 
+        [HttpGet("categories")]
+        public async Task<ActionResult<ApiResponse<IReadOnlyList<CategoryResponse>>>> GetCategories(Guid branchId)
+        {
+            return new ApiResponse<IReadOnlyList<CategoryResponse>>
+            {
+                Result = await _menuManagementService.GetPublicBranchCategoriesAsync(branchId),
+                Message = "Get categories successfully"
+            };
+        }
+
         [HttpGet("menu-items/{id:guid}")]
         public async Task<ActionResult<ApiResponse<MenuItemResponse>>> GetMenuItem(Guid branchId, Guid id)
         {

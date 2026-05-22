@@ -29,6 +29,16 @@ namespace ScanNow.Web.Controllers
             };
         }
 
+        [HttpGet("owners/available")]
+        public async Task<ActionResult<ApiResponse<PagedResult<OwnerUserResponse>>>> GetAvailableOwners([FromQuery] UserListQuery query)
+        {
+            return new ApiResponse<PagedResult<OwnerUserResponse>>
+            {
+                Result = await _userManagementService.GetAvailableOwnersAsync(query),
+                Message = "Get available owners successfully"
+            };
+        }
+
         [HttpPost("owners")]
         public async Task<ActionResult<ApiResponse<OwnerUserResponse>>> CreateOwner([FromBody] CreateOwnerRequest request)
         {

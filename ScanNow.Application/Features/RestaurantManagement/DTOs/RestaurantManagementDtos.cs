@@ -21,10 +21,14 @@ namespace ScanNow.Application.Features.RestaurantManagement.DTOs
     {
         public Guid RestaurantId { get; set; }
         public Guid OwnerId { get; set; }
+        public string OwnerName { get; set; } = string.Empty;
+        public string OwnerEmail { get; set; } = string.Empty;
+        public string? OwnerPhone { get; set; }
         public string Name { get; set; } = string.Empty;
         public string Slug { get; set; } = string.Empty;
         public string? LogoUrl { get; set; }
         public string? Description { get; set; }
+        public int TotalBranches { get; set; }
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
@@ -83,6 +87,7 @@ namespace ScanNow.Application.Features.RestaurantManagement.DTOs
         public Guid BranchId { get; set; }
         public Guid RestaurantId { get; set; }
         public Guid? ManagerId { get; set; }
+        public string? ManagerName { get; set; }
         public string Name { get; set; } = string.Empty;
         public string Slug { get; set; } = string.Empty;
         public string? Address { get; set; }

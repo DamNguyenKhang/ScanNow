@@ -49,7 +49,9 @@ namespace ScanNow.Application.Features.UserManagement.Validators
             RuleFor(x => x.PhoneNumber).MaximumLength(50);
             RuleFor(x => x.Password).NotEmpty();
             RuleFor(x => x.Role).NotEmpty().Must(BeManagedRole).WithMessage("Invalid role");
-            RuleFor(x => x.BranchIds).NotEmpty();
+            RuleFor(x => x.BranchIds)
+                .Must(ManagedUserValidationRules.HaveExactlyOneBranch)
+                .WithMessage("User must belong to exactly one branch");
         }
 
         private static bool BeManagedRole(string role)
@@ -69,7 +71,9 @@ namespace ScanNow.Application.Features.UserManagement.Validators
             RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(256);
             RuleFor(x => x.PhoneNumber).MaximumLength(50);
             RuleFor(x => x.Role).NotEmpty().Must(BeManagedRole).WithMessage("Invalid role");
-            RuleFor(x => x.BranchIds).NotEmpty();
+            RuleFor(x => x.BranchIds)
+                .Must(ManagedUserValidationRules.HaveExactlyOneBranch)
+                .WithMessage("User must belong to exactly one branch");
         }
 
         private static bool BeManagedRole(string role)
@@ -77,6 +81,16 @@ namespace ScanNow.Application.Features.UserManagement.Validators
             return role == UserRole.BRANCH_MANAGER.ToString()
                 || role == UserRole.STAFF.ToString()
                 || role == UserRole.KITCHEN.ToString();
+        }
+    }
+
+    internal static class ManagedUserValidationRules
+    {
+        public static bool HaveExactlyOneBranch(List<Guid>? branchIds)
+        {
+            return branchIds is not null
+                && branchIds.Count == 1
+                && branchIds[0] != Guid.Empty;
         }
     }
 }

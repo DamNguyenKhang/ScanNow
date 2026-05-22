@@ -90,6 +90,33 @@ namespace ScanNow.Application.Features.UserManagement
             return ToPagedResult(items, query);
         }
 
+        public async Task<PagedResult<OwnerUserResponse>> GetAvailableOwnersAsync(UserListQuery query)
+        {
+            await ValidateQueryAsync(query, ["fullName", "username", "email", "createdAt"]);
+
+            var owners = (await _userManager.GetUsersInRoleAsync(OwnerRole)).ToList();
+            var restaurants = await _repository.GetRestaurantsByOwnerIdsAsync(owners.Select(x => x.Id));
+            var assignedOwnerIds = restaurants.Select(x => x.OwnerId).ToHashSet();
+
+            var items = owners
+                .Where(user => !assignedOwnerIds.Contains(user.Id))
+                .Select(user => new OwnerUserResponse
+                {
+                    UserId = user.Id,
+                    FullName = user.FullName,
+                    Username = user.UserName ?? string.Empty,
+                    Email = user.Email ?? string.Empty,
+                    PhoneNumber = user.PhoneNumber,
+                    IsActive = user.IsActive,
+                    IsBanned = IsBanned(user),
+                    CreatedAt = user.CreatedAt
+                });
+
+            items = ApplyOwnerFilters(items, query);
+            items = ApplyOwnerSort(items, query);
+            return ToPagedResult(items, query);
+        }
+
         public async Task<OwnerUserResponse> CreateOwnerAsync(CreateOwnerRequest request)
         {
             await _createOwnerValidator.ValidateAndThrowAsync(request);

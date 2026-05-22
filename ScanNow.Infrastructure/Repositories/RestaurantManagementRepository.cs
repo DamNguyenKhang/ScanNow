@@ -17,18 +17,24 @@ namespace ScanNow.Infrastructure.Repositories
         {
             return _context.Restaurants
                 .AsNoTracking()
+                .Include(x => x.Owner)
+                .Include(x => x.Branches)
                 .ToListAsync(ct);
         }
 
         public Task<Restaurant?> GetRestaurantByIdAsync(Guid id, CancellationToken ct = default)
         {
             return _context.Restaurants
+                .Include(x => x.Owner)
+                .Include(x => x.Branches)
                 .FirstOrDefaultAsync(x => x.Id == id, ct);
         }
 
         public Task<Restaurant?> GetRestaurantByOwnerIdAsync(Guid ownerId, CancellationToken ct = default)
         {
             return _context.Restaurants
+                .Include(x => x.Owner)
+                .Include(x => x.Branches)
                 .FirstOrDefaultAsync(x => x.OwnerId == ownerId, ct);
         }
 
@@ -47,6 +53,7 @@ namespace ScanNow.Infrastructure.Repositories
         {
             return _context.Branches
                 .AsNoTracking()
+                .Include(x => x.Manager)
                 .Where(x => x.RestaurantId == restaurantId)
                 .ToListAsync(ct);
         }
@@ -55,6 +62,7 @@ namespace ScanNow.Infrastructure.Repositories
         {
             return _context.Branches
                 .AsNoTracking()
+                .Include(x => x.Manager)
                 .Where(branch => branch.ManagerId == userId
                     || _context.BranchStaff.Any(staff => staff.BranchId == branch.Id && staff.UserId == userId))
                 .ToListAsync(ct);
@@ -63,6 +71,7 @@ namespace ScanNow.Infrastructure.Repositories
         public Task<Branch?> GetBranchByIdAsync(Guid id, CancellationToken ct = default)
         {
             return _context.Branches
+                .Include(x => x.Manager)
                 .FirstOrDefaultAsync(x => x.Id == id, ct);
         }
 

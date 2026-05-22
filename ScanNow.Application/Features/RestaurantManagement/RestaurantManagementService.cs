@@ -411,7 +411,10 @@ namespace ScanNow.Application.Features.RestaurantManagement
                 restaurants = restaurants.Where(x =>
                     Contains(x.Name, search)
                     || Contains(x.Slug, search)
-                    || Contains(x.Description, search));
+                    || Contains(x.Description, search)
+                    || Contains(x.Owner.FullName, search)
+                    || Contains(x.Owner.Email, search)
+                    || Contains(x.Owner.PhoneNumber, search));
             }
 
             return restaurants;
@@ -498,10 +501,14 @@ namespace ScanNow.Application.Features.RestaurantManagement
             {
                 RestaurantId = restaurant.Id,
                 OwnerId = restaurant.OwnerId,
+                OwnerName = restaurant.Owner?.FullName ?? string.Empty,
+                OwnerEmail = restaurant.Owner?.Email ?? string.Empty,
+                OwnerPhone = restaurant.Owner?.PhoneNumber,
                 Name = restaurant.Name,
                 Slug = restaurant.Slug,
                 LogoUrl = restaurant.LogoUrl,
                 Description = restaurant.Description,
+                TotalBranches = restaurant.Branches?.Count ?? 0,
                 IsActive = restaurant.IsActive,
                 CreatedAt = restaurant.CreatedAt,
                 UpdatedAt = restaurant.UpdatedAt
@@ -515,6 +522,7 @@ namespace ScanNow.Application.Features.RestaurantManagement
                 BranchId = branch.Id,
                 RestaurantId = branch.RestaurantId,
                 ManagerId = branch.ManagerId,
+                ManagerName = branch.Manager?.FullName,
                 Name = branch.Name,
                 Slug = branch.Slug,
                 Address = branch.Address,

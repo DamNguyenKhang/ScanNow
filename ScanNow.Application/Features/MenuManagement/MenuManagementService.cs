@@ -372,6 +372,17 @@ namespace ScanNow.Application.Features.MenuManagement
             return await BuildMenuAsync(branch.Id, onlyActiveAndAvailable: true, query);
         }
 
+        public async Task<IReadOnlyList<CategoryResponse>> GetPublicBranchCategoriesAsync(Guid branchId)
+        {
+            var branch = await GetActiveBranchForMenuAsync(branchId);
+            return (await _repository.GetCategoriesByBranchIdAsync(branch.Id))
+                .Where(x => x.IsActive)
+                .OrderBy(x => x.DisplayOrder)
+                .ThenBy(x => x.Name)
+                .Select(_mapper.Map<CategoryResponse>)
+                .ToList();
+        }
+
         public async Task<MenuItemResponse> GetPublicMenuItemAsync(Guid branchId, Guid id)
         {
             await GetActiveBranchForMenuAsync(branchId);

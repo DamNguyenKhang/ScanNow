@@ -5,6 +5,7 @@ namespace ScanNow.Application.Abstractions
     public interface IUserManagementService
     {
         Task<PagedResult<OwnerUserResponse>> GetOwnersAsync(UserListQuery query);
+        Task<PagedResult<OwnerUserResponse>> GetAvailableOwnersAsync(UserListQuery query);
         Task<OwnerUserResponse> CreateOwnerAsync(CreateOwnerRequest request);
         Task<OwnerUserResponse> UpdateOwnerAsync(Guid id, UpdateOwnerRequest request);
         Task BanOwnerAsync(Guid id, BanUserRequest request);
