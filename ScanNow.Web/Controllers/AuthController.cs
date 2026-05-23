@@ -13,10 +13,12 @@ namespace ScanNow.Web.Controllers
     {
         private const string RefreshTokenCookieName = "refreshToken";
         private readonly IAuthService _authService;
+        private readonly IConfiguration _configuration;
 
-        public AuthController(IAuthService authService)
+        public AuthController(IAuthService authService, IConfiguration configuration)
         {
             _authService = authService;
+            _configuration = configuration;
         }
 
         [HttpPost("register")]
@@ -163,12 +165,16 @@ namespace ScanNow.Web.Controllers
 
         private CookieOptions CreateCookieOptions()
         {
+            var refreshTokenLifetime = TimeSpan.FromDays(_configuration.GetValue<double>("Jwt:RefreshTokenExpirationDays"));
+
             return new CookieOptions
             {
                 HttpOnly = true,
                 SameSite = SameSiteMode.Lax,
                 Secure = Request.IsHttps,
-                Path = "/"
+                Path = "/",
+                Expires = DateTimeOffset.UtcNow.Add(refreshTokenLifetime),
+                MaxAge = refreshTokenLifetime
             };
         }
     }
