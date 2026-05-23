@@ -6,6 +6,7 @@ using ScanNow.Application.Features.Auth;
 using ScanNow.Application.Features.MenuManagement;
 using ScanNow.Application.Features.RestaurantManagement;
 using ScanNow.Application.Features.SessionUser;
+using ScanNow.Application.Features.TableQr;
 using ScanNow.Application.Features.UserManagement;
 using System.Reflection;
 
@@ -23,6 +24,7 @@ namespace ScanNow.Application
             services.AddScoped<IUserManagementService, UserManagementService>();
             services.AddScoped<IRestaurantManagementService, RestaurantManagementService>();
             services.AddScoped<IMenuManagementService, MenuManagementService>();
+            services.AddScoped<ITableQrService, TableQrService>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
             return services;
         }

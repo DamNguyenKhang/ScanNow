@@ -27,6 +27,7 @@ namespace ScanNow.Infrastructure
             services.AddScoped<IUserManagementRepository, UserManagementRepository>();
             services.AddScoped<IRestaurantManagementRepository, RestaurantManagementRepository>();
             services.AddScoped<IMenuManagementRepository, MenuManagementRepository>();
+            services.AddScoped<ITableQrRepository, TableQrRepository>();
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             return services;
         }
