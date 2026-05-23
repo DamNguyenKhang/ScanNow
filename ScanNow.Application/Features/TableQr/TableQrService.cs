@@ -1,4 +1,5 @@
 using FluentValidation;
+using Microsoft.Extensions.Configuration;
 using QRCoder;
 using ScanNow.Application.Abstractions;
 using ScanNow.Application.Exceptions;
@@ -29,6 +30,7 @@ namespace ScanNow.Application.Features.TableQr
         private readonly IValidator<UpdateTableStatusRequest> _statusValidator;
         private readonly IValidator<JoinSessionRequest> _joinSessionValidator;
         private readonly IValidator<MenuQuery> _menuQueryValidator;
+        private readonly IConfiguration _configuration;
 
         public TableQrService(
             ITableQrRepository repository,
@@ -39,7 +41,8 @@ namespace ScanNow.Application.Features.TableQr
             IValidator<UpdateTableRequest> updateTableValidator,
             IValidator<UpdateTableStatusRequest> statusValidator,
             IValidator<JoinSessionRequest> joinSessionValidator,
-            IValidator<MenuQuery> menuQueryValidator)
+            IValidator<MenuQuery> menuQueryValidator,
+            IConfiguration configuration)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
@@ -50,6 +53,7 @@ namespace ScanNow.Application.Features.TableQr
             _statusValidator = statusValidator;
             _joinSessionValidator = joinSessionValidator;
             _menuQueryValidator = menuQueryValidator;
+            _configuration = configuration;
         }
 
         public async Task<ScanNow.Application.Features.RestaurantManagement.DTOs.PagedResult<TableResponse>> GetManageTablesAsync(Guid branchId, TableQuery query)
@@ -438,7 +442,18 @@ namespace ScanNow.Application.Features.TableQr
             throw new ConflictException("Unable to generate session code");
         }
 
-        private static string BuildQrCodeUrl(string qrCodeToken) => $"/api/public/tables/{qrCodeToken}";
+        private string BuildQrCodeUrl(string qrCodeToken)
+        {
+            var frontendBaseUrl = _configuration["App:FrontendBaseUrl"] ?? _configuration["App:ClientUrl"];
+            var tablePath = _configuration["App:QrTablePath"] ?? "/tables";
+
+            if (string.IsNullOrWhiteSpace(frontendBaseUrl))
+            {
+                return $"{tablePath.TrimEnd('/')}/{qrCodeToken}";
+            }
+
+            return $"{frontendBaseUrl.TrimEnd('/')}/{tablePath.Trim('/')}/{qrCodeToken}";
+        }
 
         private static TableResponse MapTable(RestaurantTable table)
         {
