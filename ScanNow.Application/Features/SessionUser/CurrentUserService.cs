@@ -28,7 +28,9 @@ namespace ScanNow.Application.Features.SessionUser
             .FindFirstValue(ClaimTypes.Email);
 
         public string? Role => _httpContextAccessor.HttpContext?.User?
-            .FindFirstValue(ClaimTypes.Role);
+            .FindFirstValue(ClaimTypes.Role)
+            ?? _httpContextAccessor.HttpContext?.User?
+                .FindFirstValue("role");
 
         //public Guid? BranchId
         //{
