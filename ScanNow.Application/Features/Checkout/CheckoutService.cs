@@ -1,6 +1,7 @@
 using FluentValidation;
 using ScanNow.Application.Abstractions;
 using ScanNow.Application.Features.Checkout.DTOs;
+using ScanNow.Application.Mappers;
 using ScanNow.Domain.Abstractions.External;
 using ScanNow.Domain.Abstractions.Persistence;
 using ScanNow.Domain.Entities;
@@ -15,17 +16,20 @@ namespace ScanNow.Application.Features.Checkout
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPaymentService _paymentService;
         private readonly IValidator<CreateCheckoutRequest> _checkoutValidator;
+        private readonly IOrderUpdatePublisher _publisher;
 
         public CheckoutService(
             IOrderRepository orderRepository,
             IUnitOfWork unitOfWork,
             IPaymentService paymentService,
-            IValidator<CreateCheckoutRequest> checkoutValidator)
+            IValidator<CreateCheckoutRequest> checkoutValidator,
+            IOrderUpdatePublisher publisher)
         {
             _orderRepository = orderRepository;
             _unitOfWork = unitOfWork;
             _paymentService = paymentService;
             _checkoutValidator = checkoutValidator;
+            _publisher = publisher;
         }
 
         public async Task<CheckoutResponse> CreateCheckoutAsync(string sessionCode, CreateCheckoutRequest request)
@@ -44,7 +48,7 @@ namespace ScanNow.Application.Features.Checkout
             var order = await _orderRepository.GetOrderWithPaymentsAsync(session.ActiveOrderId.Value)
                 ?? throw new NotFoundException("Order not found");
 
-            if (order.Status != OrderStatus.PENDING)
+            if (order.Status == OrderStatus.Completed)
             {
                 throw new ConflictException($"Order is already in '{order.Status}' status and cannot be checked out.");
             }
@@ -128,17 +132,18 @@ namespace ScanNow.Application.Features.Checkout
                         payment.PaidAt = DateTime.UtcNow;
                         payment.UpdatedAt = DateTime.UtcNow;
 
-                        order.Status = OrderStatus.CONFIRMED;
-                        order.ConfirmedAt = DateTime.UtcNow;
+                        order.Status = OrderStatus.Completed;
+                        order.CompletedAt = DateTime.UtcNow;
                         order.UpdatedAt = DateTime.UtcNow;
 
                         await _unitOfWork.SaveChangesAsync();
+                        await _publisher.PublishOrderUpdatedAsync(CustomerOrderMapper.Map(order));
 
                         return new PaymentStatusResponse
                         {
                             OrderId = order.Id,
                             PaymentStatus = PaymentStatus.SUCCESS.ToString(),
-                            OrderStatus = OrderStatus.CONFIRMED.ToString()
+                            OrderStatus = OrderStatus.Completed.ToString()
                         };
                     }
                 }
@@ -166,11 +171,12 @@ namespace ScanNow.Application.Features.Checkout
             };
 
             order.Payments.Add(payment);
-            order.Status = OrderStatus.CONFIRMED;
-            order.ConfirmedAt = DateTime.UtcNow;
+            order.Status = OrderStatus.Completed;
+            order.CompletedAt = DateTime.UtcNow;
             order.UpdatedAt = DateTime.UtcNow;
 
             await _unitOfWork.SaveChangesAsync();
+            await _publisher.PublishOrderUpdatedAsync(CustomerOrderMapper.Map(order));
 
             return new CheckoutResponse
             {

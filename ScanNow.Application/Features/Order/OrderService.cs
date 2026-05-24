@@ -1,6 +1,8 @@
 using FluentValidation;
 using ScanNow.Application.Abstractions;
+using ScanNow.Application.Exceptions;
 using ScanNow.Application.Features.Order.DTOs;
+using ScanNow.Application.Mappers;
 using ScanNow.Domain.Abstractions.Persistence;
 using ScanNow.Domain.Entities;
 using ScanNow.Domain.Enums;
@@ -13,18 +15,21 @@ namespace ScanNow.Application.Features.Order
         private readonly IOrderRepository _repository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IValidator<PlaceOrderRequest> _placeOrderValidator;
+        private readonly IOrderUpdatePublisher _publisher;
 
         public OrderService(
             IOrderRepository repository,
             IUnitOfWork unitOfWork,
-            IValidator<PlaceOrderRequest> placeOrderValidator)
+            IValidator<PlaceOrderRequest> placeOrderValidator,
+            IOrderUpdatePublisher publisher)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
             _placeOrderValidator = placeOrderValidator;
+            _publisher = publisher;
         }
 
-        public async Task<OrderResponse> PlaceOrderAsync(string sessionCode, PlaceOrderRequest request)
+        public async Task<CustomerOrderResponse> PlaceOrderAsync(string sessionCode, PlaceOrderRequest request)
         {
             await _placeOrderValidator.ValidateAndThrowAsync(request);
 
@@ -49,6 +54,9 @@ namespace ScanNow.Application.Features.Order
             {
                 order = await _repository.GetActiveOrderByIdAsync(session.ActiveOrderId.Value)
                     ?? throw new NotFoundException("Active order not found");
+
+                if (order.Status != OrderStatus.PendingConfirmation)
+                    throw new BusinessRuleException("Cannot add items after an order has been confirmed");
 
                 foreach (var item in orderItems)
                 {
@@ -81,7 +89,7 @@ namespace ScanNow.Application.Features.Order
                     ServiceChargeAmount = serviceChargeAmount,
                     DiscountAmount = 0,
                     TotalAmount = totalAmount,
-                    Status = OrderStatus.PENDING,
+                    Status = OrderStatus.PendingConfirmation,
                     OrderSource = OrderSource.QR,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
@@ -96,7 +104,53 @@ namespace ScanNow.Application.Features.Order
 
             await _unitOfWork.SaveChangesAsync();
 
-            return MapOrder(order);
+            var response = CustomerOrderMapper.Map(order);
+            await _publisher.PublishOrderUpdatedAsync(response);
+            return response;
+        }
+
+        public async Task<CustomerOrderResponse> GetPublicOrderDetailAsync(string sessionCode, Guid orderId)
+        {
+            var normalizedCode = sessionCode.Trim().ToUpperInvariant();
+            var order = await _repository.GetActiveSessionOrderAsync(normalizedCode, orderId)
+                ?? throw new NotFoundException("Order not found");
+
+            return CustomerOrderMapper.Map(order);
+        }
+
+        public async Task CancelOrderAsync(Guid orderId, Guid branchId)
+        {
+            var order = await _repository.GetActiveOrderByIdAsync(orderId)
+                ?? throw new NotFoundException("Order not found");
+
+            if (order.BranchId != branchId)
+                throw new ForbiddenException("You do not have permission to cancel this order");
+
+            if (order.Status == OrderStatus.Cancelled || order.Status == OrderStatus.Completed)
+                throw new BusinessRuleException("Order is already cancelled or completed");
+
+            var hasInProgressItems = order.Items.Any(x =>
+                x.Status == OrderItemStatus.Cooking ||
+                x.Status == OrderItemStatus.Ready ||
+                x.Status == OrderItemStatus.Served);
+
+            if (hasInProgressItems)
+                throw new BusinessRuleException("Cannot cancel order: some items are already being prepared or served");
+
+            foreach (var item in order.Items.Where(x => x.Status != OrderItemStatus.Cancelled))
+            {
+                item.Status = OrderItemStatus.Cancelled;
+                item.CancelledAt = DateTime.UtcNow;
+                item.UpdatedAt = DateTime.UtcNow;
+            }
+
+            order.Status = OrderStatus.Cancelled;
+            order.CancelledAt = DateTime.UtcNow;
+            order.UpdatedAt = DateTime.UtcNow;
+
+            await _unitOfWork.SaveChangesAsync();
+
+            await _publisher.PublishOrderUpdatedAsync(CustomerOrderMapper.Map(order));
         }
 
         private async Task<List<OrderItem>> BuildOrderItemsAsync(PlaceOrderRequest request, Guid branchId)
@@ -109,19 +163,13 @@ namespace ScanNow.Application.Features.Order
                     ?? throw new NotFoundException($"Menu item '{itemRequest.MenuItemId}' not found");
 
                 if (!menuItem.IsActive)
-                {
                     throw new BusinessRuleException($"Menu item '{menuItem.Name}' is not active");
-                }
 
                 if (!menuItem.IsAvailable)
-                {
                     throw new BusinessRuleException($"Menu item '{menuItem.Name}' is currently unavailable");
-                }
 
                 if (menuItem.BranchId != branchId)
-                {
                     throw new BusinessRuleException($"Menu item '{menuItem.Name}' does not belong to this branch");
-                }
 
                 var quantity = itemRequest.Quantity;
                 var subTotal = menuItem.Price * quantity;
@@ -134,8 +182,9 @@ namespace ScanNow.Application.Features.Order
                     UnitPrice = menuItem.Price,
                     Quantity = quantity,
                     SubTotal = subTotal,
-                    SpecialRequest = itemRequest.SpecialRequest?.Trim(),
-                    KitchenStatus = KitchenStatus.PENDING,
+                    Note = itemRequest.Note?.Trim(),
+                    EstimatedCookingMinutes = menuItem.PreparationTime,
+                    Status = OrderItemStatus.Pending,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 });
@@ -185,8 +234,9 @@ namespace ScanNow.Application.Features.Order
                 UnitPrice = item.UnitPrice,
                 Quantity = item.Quantity,
                 SubTotal = item.SubTotal,
-                SpecialRequest = item.SpecialRequest,
-                KitchenStatus = item.KitchenStatus
+                Note = item.Note,
+                Status = item.Status,
+                EstimatedCookingMinutes = item.EstimatedCookingMinutes
             };
         }
     }

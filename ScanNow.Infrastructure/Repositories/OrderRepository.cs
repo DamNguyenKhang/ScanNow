@@ -37,8 +37,23 @@ namespace ScanNow.Infrastructure.Repositories
                 .Include(x => x.Items)
                 .FirstOrDefaultAsync(
                     x => x.Id == orderId
-                         && x.Status != OrderStatus.CANCELLED
-                         && x.Status != OrderStatus.COMPLETED,
+                         && x.Status != OrderStatus.Cancelled
+                         && x.Status != OrderStatus.Completed,
+                    ct);
+        }
+
+        public Task<Order?> GetActiveSessionOrderAsync(string sessionCode, Guid orderId, CancellationToken ct = default)
+        {
+            var now = DateTime.UtcNow;
+            return _context.Orders
+                .Include(x => x.Items)
+                .FirstOrDefaultAsync(
+                    x => x.Id == orderId
+                         && x.QrSessions.Any(session =>
+                             session.SessionToken == sessionCode
+                             && session.ActiveOrderId == orderId
+                             && session.IsActive
+                             && session.ExpiresAt > now),
                     ct);
         }
 

@@ -2,11 +2,14 @@ namespace ScanNow.Domain.Enums
 {
     public enum OrderStatus
     {
-        PENDING,
-        CONFIRMED,
-        PREPARING,
-        READY,
-        COMPLETED,
-        CANCELLED
+        PendingConfirmation,
+        Confirmed,
+        Preparing,
+        PartiallyReady,
+        ReadyToServe,
+        PartiallyServed,
+        Served,
+        Completed,
+        Cancelled
     }
 }

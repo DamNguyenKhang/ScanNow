@@ -4,6 +4,7 @@ using ScanNow.Application.Abstractions;
 using ScanNow.Application.Exceptions;
 using ScanNow.Application.Features.Auth;
 using ScanNow.Application.Features.Checkout;
+using ScanNow.Application.Features.Kitchen;
 using ScanNow.Application.Features.MenuManagement;
 using ScanNow.Application.Features.Order;
 using ScanNow.Application.Features.RestaurantManagement;
@@ -11,6 +12,7 @@ using ScanNow.Application.Features.SessionUser;
 using ScanNow.Application.Features.TableQr;
 using ScanNow.Application.Features.UserManagement;
 using ScanNow.Application.Features.Cart;
+using ScanNow.Application.Features.Waiter;
 using System.Reflection;
 
 namespace ScanNow.Application
@@ -32,6 +34,8 @@ namespace ScanNow.Application
             services.AddScoped<ITableQrService, TableQrService>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
             services.AddScoped<ICartService, CartService>();
+            services.AddScoped<IWaiterService, WaiterService>();
+            services.AddScoped<IKitchenService, KitchenService>();
             return services;
         }
     }

@@ -6,6 +6,7 @@ namespace ScanNow.Web
     {
         public static IServiceCollection AddPresentation(this IServiceCollection services)
         {
+            services.AddScoped<ScanNow.Application.Abstractions.IOrderUpdatePublisher, ScanNow.Web.Hubs.SignalROrderUpdatePublisher>();
             services.AddProblemDetails(configure =>
                 configure.CustomizeProblemDetails = context =>
                 {
