@@ -39,6 +39,16 @@ namespace ScanNow.Web.Controllers
             };
         }
 
+        [HttpGet("by-slug/{slug}")]
+        public async Task<ActionResult<ApiResponse<RestaurantResponse>>> GetRestaurantBySlug(string slug)
+        {
+            return new ApiResponse<RestaurantResponse>
+            {
+                Result = await _restaurantManagementService.GetRestaurantBySlugAsync(slug),
+                Message = "Get restaurant successfully"
+            };
+        }
+
         [HttpGet("{id:guid}/branches")]
         public async Task<ActionResult<ApiResponse<PagedResult<BranchResponse>>>> GetRestaurantBranches(Guid id, [FromQuery] BranchQuery query)
         {
@@ -49,12 +59,32 @@ namespace ScanNow.Web.Controllers
             };
         }
 
+        [HttpGet("by-slug/{slug}/branches")]
+        public async Task<ActionResult<ApiResponse<PagedResult<BranchResponse>>>> GetRestaurantBranchesBySlug(string slug, [FromQuery] BranchQuery query)
+        {
+            return new ApiResponse<PagedResult<BranchResponse>>
+            {
+                Result = await _restaurantManagementService.GetRestaurantBranchesBySlugAsync(slug, query),
+                Message = "Get restaurant branches successfully"
+            };
+        }
+
         [HttpGet("{id:guid}/branches/{branchId:guid}")]
         public async Task<ActionResult<ApiResponse<BranchResponse>>> GetRestaurantBranch(Guid id, Guid branchId)
         {
             return new ApiResponse<BranchResponse>
             {
                 Result = await _restaurantManagementService.GetRestaurantBranchByIdAsync(id, branchId),
+                Message = "Get restaurant branch successfully"
+            };
+        }
+
+        [HttpGet("by-slug/{slug}/branches/{branchSlug}")]
+        public async Task<ActionResult<ApiResponse<BranchResponse>>> GetRestaurantBranchBySlug(string slug, string branchSlug)
+        {
+            return new ApiResponse<BranchResponse>
+            {
+                Result = await _restaurantManagementService.GetRestaurantBranchBySlugAsync(slug, branchSlug),
                 Message = "Get restaurant branch successfully"
             };
         }

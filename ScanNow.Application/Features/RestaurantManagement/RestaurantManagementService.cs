@@ -68,6 +68,14 @@ namespace ScanNow.Application.Features.RestaurantManagement
             return MapRestaurant(restaurant);
         }
 
+        public async Task<RestaurantResponse> GetRestaurantBySlugAsync(string slug)
+        {
+            var restaurant = await _repository.GetRestaurantBySlugAsync(Normalize(slug))
+                ?? throw new NotFoundException("Restaurant not found");
+
+            return MapRestaurant(restaurant);
+        }
+
         public async Task<PagedResult<BranchResponse>> GetRestaurantBranchesAsync(Guid restaurantId, BranchQuery query)
         {
             await _branchQueryValidator.ValidateAndThrowAsync(query);
@@ -79,6 +87,21 @@ namespace ScanNow.Application.Features.RestaurantManagement
             }
 
             IEnumerable<Branch> branches = await _repository.GetBranchesByRestaurantIdAsync(restaurantId);
+            branches = ApplyBranchFilters(branches, query);
+            branches = ApplyBranchSort(branches, query);
+
+            return ToPagedResult(branches.Select(MapBranch), query.PageNumber, query.PageSize);
+        }
+
+        public async Task<PagedResult<BranchResponse>> GetRestaurantBranchesBySlugAsync(string restaurantSlug, BranchQuery query)
+        {
+            await _branchQueryValidator.ValidateAndThrowAsync(query);
+            ValidateBranchSort(query.SortBy);
+
+            var restaurant = await _repository.GetRestaurantBySlugAsync(Normalize(restaurantSlug))
+                ?? throw new NotFoundException("Restaurant not found");
+
+            IEnumerable<Branch> branches = await _repository.GetBranchesByRestaurantIdAsync(restaurant.Id);
             branches = ApplyBranchFilters(branches, query);
             branches = ApplyBranchSort(branches, query);
 
@@ -99,6 +122,17 @@ namespace ScanNow.Application.Features.RestaurantManagement
             {
                 throw new NotFoundException("Branch not found");
             }
+
+            return MapBranch(branch);
+        }
+
+        public async Task<BranchResponse> GetRestaurantBranchBySlugAsync(string restaurantSlug, string branchSlug)
+        {
+            var restaurant = await _repository.GetRestaurantBySlugAsync(Normalize(restaurantSlug))
+                ?? throw new NotFoundException("Restaurant not found");
+
+            var branch = await _repository.GetBranchBySlugAsync(restaurant.Id, Normalize(branchSlug))
+                ?? throw new NotFoundException("Branch not found");
 
             return MapBranch(branch);
         }
