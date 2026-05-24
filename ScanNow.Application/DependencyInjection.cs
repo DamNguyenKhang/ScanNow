@@ -10,6 +10,7 @@ using ScanNow.Application.Features.RestaurantManagement;
 using ScanNow.Application.Features.SessionUser;
 using ScanNow.Application.Features.TableQr;
 using ScanNow.Application.Features.UserManagement;
+using ScanNow.Application.Features.Cart;
 using System.Reflection;
 
 namespace ScanNow.Application
@@ -30,6 +31,7 @@ namespace ScanNow.Application
             services.AddScoped<ICheckoutService, CheckoutService>();
             services.AddScoped<ITableQrService, TableQrService>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
+            services.AddScoped<ICartService, CartService>();
             return services;
         }
     }
