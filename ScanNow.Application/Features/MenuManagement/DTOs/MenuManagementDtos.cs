@@ -9,6 +9,7 @@ namespace ScanNow.Application.Features.MenuManagement.DTOs
         public bool? IsAvailable { get; set; }
         public bool? IsFeatured { get; set; }
         public Guid? CategoryId { get; set; }
+        public List<Guid>? CategoryIds { get; set; }
         public string? SortBy { get; set; }
         public string? SortDirection { get; set; } = "asc";
     }

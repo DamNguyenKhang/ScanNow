@@ -538,9 +538,10 @@ namespace ScanNow.Application.Features.TableQr
             var filteredCategories = categories.Where(x => x.IsActive).ToList();
             IEnumerable<MenuItem> filteredItems = items.Where(x => x.BranchId == branchId && x.IsActive && x.IsAvailable && x.Category.IsActive);
 
-            if (query.CategoryId.HasValue)
+            var categoryIds = GetCategoryIds(query);
+            if (categoryIds.Count > 0)
             {
-                filteredItems = filteredItems.Where(x => x.CategoryId == query.CategoryId.Value);
+                filteredItems = filteredItems.Where(x => categoryIds.Contains(x.CategoryId));
             }
 
             if (query.IsFeatured.HasValue)
@@ -667,5 +668,15 @@ namespace ScanNow.Application.Features.TableQr
         }
 
         private static bool IsDesc(string? direction) => direction?.Equals("desc", StringComparison.OrdinalIgnoreCase) == true;
+        private static HashSet<Guid> GetCategoryIds(MenuQuery query)
+        {
+            var categoryIds = query.CategoryIds?.Where(x => x != Guid.Empty).ToHashSet() ?? new HashSet<Guid>();
+            if (query.CategoryId.HasValue && query.CategoryId.Value != Guid.Empty)
+            {
+                categoryIds.Add(query.CategoryId.Value);
+            }
+
+            return categoryIds;
+        }
     }
 }

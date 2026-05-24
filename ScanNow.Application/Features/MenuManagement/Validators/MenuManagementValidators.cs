@@ -24,6 +24,7 @@ namespace ScanNow.Application.Features.MenuManagement.Validators
             RuleFor(x => x.PageNumber).GreaterThanOrEqualTo(1);
             RuleFor(x => x.PageSize).InclusiveBetween(1, 100);
             RuleFor(x => x.SortDirection).Must(BeSortDirection).WithMessage("sortDirection only accepts asc or desc");
+            RuleForEach(x => x.CategoryIds).NotEmpty();
         }
 
         private static bool BeSortDirection(string? value) => string.IsNullOrWhiteSpace(value)

@@ -569,9 +569,10 @@ namespace ScanNow.Application.Features.MenuManagement
 
         private static IEnumerable<MenuItem> ApplyMenuItemFilters(IEnumerable<MenuItem> items, MenuQuery query)
         {
-            if (query.CategoryId.HasValue)
+            var categoryIds = GetCategoryIds(query);
+            if (categoryIds.Count > 0)
             {
-                items = items.Where(x => x.CategoryId == query.CategoryId.Value);
+                items = items.Where(x => categoryIds.Contains(x.CategoryId));
             }
 
             if (query.IsActive.HasValue)
@@ -654,6 +655,17 @@ namespace ScanNow.Application.Features.MenuManagement
 
         private static bool IsDesc(string? direction) => direction?.Equals("desc", StringComparison.OrdinalIgnoreCase) == true;
         private static bool Contains(string? value, string search) => value?.Contains(search, StringComparison.OrdinalIgnoreCase) == true;
+        private static HashSet<Guid> GetCategoryIds(MenuQuery query)
+        {
+            var categoryIds = query.CategoryIds?.Where(x => x != Guid.Empty).ToHashSet() ?? new HashSet<Guid>();
+            if (query.CategoryId.HasValue && query.CategoryId.Value != Guid.Empty)
+            {
+                categoryIds.Add(query.CategoryId.Value);
+            }
+
+            return categoryIds;
+        }
+
         private static string? TrimToNull(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 }
