@@ -1,13 +1,16 @@
-﻿using FluentValidation;
+using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using ScanNow.Application.Abstractions;
 using ScanNow.Application.Exceptions;
 using ScanNow.Application.Features.Auth;
+using ScanNow.Application.Features.Checkout;
 using ScanNow.Application.Features.MenuManagement;
+using ScanNow.Application.Features.Order;
 using ScanNow.Application.Features.RestaurantManagement;
 using ScanNow.Application.Features.SessionUser;
 using ScanNow.Application.Features.TableQr;
 using ScanNow.Application.Features.UserManagement;
+using ScanNow.Application.Features.Cart;
 using System.Reflection;
 
 namespace ScanNow.Application
@@ -24,8 +27,11 @@ namespace ScanNow.Application
             services.AddScoped<IUserManagementService, UserManagementService>();
             services.AddScoped<IRestaurantManagementService, RestaurantManagementService>();
             services.AddScoped<IMenuManagementService, MenuManagementService>();
+            services.AddScoped<IOrderService, OrderService>();
+            services.AddScoped<ICheckoutService, CheckoutService>();
             services.AddScoped<ITableQrService, TableQrService>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
+            services.AddScoped<ICartService, CartService>();
             return services;
         }
     }

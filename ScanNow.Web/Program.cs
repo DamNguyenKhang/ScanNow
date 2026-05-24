@@ -60,6 +60,8 @@ builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
 builder.Services.AddAuthorization();
 
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
+builder.Services.AddSignalR();
 
 builder.Services
     .AddDatabase(connectionString)
@@ -67,6 +69,7 @@ builder.Services
     .AddPresentation()
     .AddApplication()
     .AddInfrastructure()
+    .AddPayOS(builder.Configuration)
     ;
 
 // Disable default claim type mapping so JWT claims are read as-is.
@@ -125,6 +128,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<ScanNow.Web.Hubs.CartHub>("/hubs/cart");
 
 // Auto migrate on startup
 using (var scope = app.Services.CreateScope())
