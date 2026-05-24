@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ScanNow.Domain.Abstractions.External;
@@ -27,6 +27,7 @@ namespace ScanNow.Infrastructure
             services.AddScoped<IUserManagementRepository, UserManagementRepository>();
             services.AddScoped<IRestaurantManagementRepository, RestaurantManagementRepository>();
             services.AddScoped<IMenuManagementRepository, MenuManagementRepository>();
+            services.AddScoped<IOrderRepository, OrderRepository>();
             services.AddScoped<ITableQrRepository, TableQrRepository>();
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             return services;
