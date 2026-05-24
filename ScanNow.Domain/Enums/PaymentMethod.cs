@@ -5,6 +5,7 @@ namespace ScanNow.Domain.Enums
         CASH,
         VNPAY,
         MOMO,
-        BANK_TRANSFER
+        BANK_TRANSFER,
+        PAYOS
     }
 }

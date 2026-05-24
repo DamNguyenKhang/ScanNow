@@ -67,6 +67,7 @@ builder.Services
     .AddPresentation()
     .AddApplication()
     .AddInfrastructure()
+    .AddPayOS(builder.Configuration)
     ;
 
 // Disable default claim type mapping so JWT claims are read as-is.
