@@ -169,6 +169,7 @@ namespace ScanNow.Application.Features.TableQr
         {
             await EnsureCanWorkInBranchAsync(branchId);
             var table = await GetTableInBranchAsync(branchId, tableId);
+            CloseExpiredActiveSessions(table);
 
             if (!table.IsActive)
             {
@@ -406,6 +407,32 @@ namespace ScanNow.Application.Features.TableQr
                 ?? throw new NotFoundException("Session not found or expired");
         }
 
+        private static void CloseExpiredActiveSessions(RestaurantTable table)
+        {
+            var now = DateTime.UtcNow;
+            var expiredSessions = table.QrSessions
+                .Where(x => x.IsActive && x.ExpiresAt <= now)
+                .ToList();
+
+            if (expiredSessions.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var session in expiredSessions)
+            {
+                session.IsActive = false;
+                session.UpdatedAt = now;
+            }
+
+            if (table.Status == TableStatus.OCCUPIED && !table.QrSessions.Any(x => x.IsActive && x.ExpiresAt > now))
+            {
+                table.Status = TableStatus.AVAILABLE;
+                table.UpdatedAt = now;
+            }
+
+        }
+
         private Guid GetCurrentUserId()
         {
             return _currentUserService.UserId ?? throw new UnauthorizedException();
@@ -469,7 +496,10 @@ namespace ScanNow.Application.Features.TableQr
                 QrCodeImageUrl = table.QrCodeImageUrl,
                 Status = table.Status,
                 IsActive = table.IsActive,
-                CurrentSession = table.QrSessions.FirstOrDefault(x => x.IsActive && x.ExpiresAt > DateTime.UtcNow) is { } session ? MapSession(session) : null,
+                CurrentSession = table.QrSessions
+                    .Where(x => x.IsActive)
+                    .OrderByDescending(x => x.CreatedAt)
+                    .FirstOrDefault() is { } session ? MapSession(session) : null,
                 CreatedAt = table.CreatedAt,
                 UpdatedAt = table.UpdatedAt
             };
