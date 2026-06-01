@@ -36,17 +36,6 @@ namespace ScanNow.Application.Features.Kitchen.DTOs
 
     // ─── Start Cooking ───────────────────────────────────
 
-    public class StartCookingRequest
-    {
-        public List<Guid> OrderItemIds { get; set; } = new();
-    }
-
-    public class StartCookingResponse
-    {
-        public int ItemsUpdated { get; set; }
-        public List<Guid> AffectedOrderIds { get; set; } = new();
-    }
-
     // ─── Mark Ready ──────────────────────────────────────
 
     public class MarkReadyRequest

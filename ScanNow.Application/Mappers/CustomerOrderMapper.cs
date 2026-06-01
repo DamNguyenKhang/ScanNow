@@ -41,6 +41,7 @@ namespace ScanNow.Application.Mappers
                 Quantity = item.Quantity,
                 SubTotal = item.SubTotal,
                 Note = item.Note,
+                Status = item.Status,
                 EstimatedCookingMinutes = item.EstimatedCookingMinutes
             };
         }

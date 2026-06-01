@@ -30,6 +30,7 @@ namespace ScanNow.Application.Features.Waiter.DTOs
         public decimal SubTotal { get; set; }
         public string? Note { get; set; }
         public OrderItemStatus Status { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 
     // ─── Confirm Order ───────────────────────────────────

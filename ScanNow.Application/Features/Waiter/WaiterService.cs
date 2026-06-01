@@ -179,7 +179,8 @@ namespace ScanNow.Application.Features.Waiter
                     Quantity = i.Quantity,
                     SubTotal = i.SubTotal,
                     Note = i.Note,
-                    Status = i.Status
+                    Status = i.Status,
+                    CreatedAt = i.CreatedAt
                 }).ToList()
             };
         }
@@ -203,10 +204,7 @@ namespace ScanNow.Application.Features.Waiter
             if (activeItems.Any(x => x.Status == OrderItemStatus.Ready))
                 return OrderStatus.PartiallyReady;
 
-            if (activeItems.Any(x => x.Status == OrderItemStatus.Cooking))
-                return OrderStatus.Preparing;
-
-            if (activeItems.All(x => x.Status == OrderItemStatus.Confirmed))
+            if (activeItems.All(x => x.Status == OrderItemStatus.Confirmed || x.Status == OrderItemStatus.Cooking))
                 return OrderStatus.Confirmed;
 
             return OrderStatus.PendingConfirmation;

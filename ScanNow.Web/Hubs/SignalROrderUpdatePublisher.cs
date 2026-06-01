@@ -15,9 +15,13 @@ namespace ScanNow.Web.Hubs
 
         public Task PublishOrderUpdatedAsync(CustomerOrderResponse order, CancellationToken ct = default)
         {
-            return _hubContext.Clients
-                .Group(OrderHub.GetGroupName(order.OrderId))
-                .SendAsync("OrderUpdated", order, ct);
+            return Task.WhenAll(
+                _hubContext.Clients
+                    .Group(OrderHub.GetGroupName(order.OrderId))
+                    .SendAsync("OrderUpdated", order, ct),
+                _hubContext.Clients
+                    .Group(OrderHub.GetBranchGroupName(order.BranchId))
+                    .SendAsync("BranchOrderUpdated", order, ct));
         }
     }
 }

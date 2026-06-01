@@ -25,6 +25,17 @@ namespace ScanNow.Web.Hubs
             return Groups.RemoveFromGroupAsync(Context.ConnectionId, GetGroupName(orderId));
         }
 
+        public Task JoinBranch(Guid branchId)
+        {
+            return Groups.AddToGroupAsync(Context.ConnectionId, GetBranchGroupName(branchId));
+        }
+
+        public Task LeaveBranch(Guid branchId)
+        {
+            return Groups.RemoveFromGroupAsync(Context.ConnectionId, GetBranchGroupName(branchId));
+        }
+
         internal static string GetGroupName(Guid orderId) => $"order:{orderId:N}";
+        internal static string GetBranchGroupName(Guid branchId) => $"branch:{branchId:N}";
     }
 }

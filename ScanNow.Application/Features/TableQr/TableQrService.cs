@@ -469,7 +469,7 @@ namespace ScanNow.Application.Features.TableQr
                 QrCodeImageUrl = table.QrCodeImageUrl,
                 Status = table.Status,
                 IsActive = table.IsActive,
-                CurrentSession = table.QrSessions.FirstOrDefault(x => x.IsActive && x.ExpiresAt > DateTime.UtcNow) is { } session ? MapSession(session) : null,
+                CurrentSession = table.QrSessions.FirstOrDefault(x => x.IsActive) is { } session ? MapSession(session) : null,
                 CreatedAt = table.CreatedAt,
                 UpdatedAt = table.UpdatedAt
             };

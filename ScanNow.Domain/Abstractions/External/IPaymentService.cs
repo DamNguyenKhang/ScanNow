@@ -3,7 +3,7 @@ namespace ScanNow.Domain.Abstractions.External
     public interface IPaymentService
     {
         Task<PaymentLinkResult> CreatePaymentLinkAsync(CreatePaymentLinkInput input);
-        Task<PaymentStatusResult> GetPaymentStatusAsync(long orderCode);
+        Task<PaymentStatusResult> GetPaymentStatusAsync(long orderCode, PayOSCredentialInput? credentials = null);
     }
 
     public class CreatePaymentLinkInput
@@ -14,6 +14,18 @@ namespace ScanNow.Domain.Abstractions.External
         public string? BuyerName { get; set; }
         public string? BuyerPhone { get; set; }
         public int ExpiredAtUnixSeconds { get; set; }
+        public string? PayOsClientId { get; set; }
+        public string? PayOsApiKey { get; set; }
+        public string? PayOsChecksumKey { get; set; }
+        public string? ReturnUrl { get; set; }
+        public string? CancelUrl { get; set; }
+    }
+
+    public class PayOSCredentialInput
+    {
+        public string? ClientId { get; set; }
+        public string? ApiKey { get; set; }
+        public string? ChecksumKey { get; set; }
     }
 
     public class PaymentLinkResult

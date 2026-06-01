@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ScanNow.Application.Abstractions;
 using ScanNow.Application.DTOs;
+using ScanNow.Application.Features.Order.DTOs;
 using ScanNow.Application.Features.TableQr.DTOs;
 using ScanNow.Domain.Enums;
 
@@ -12,10 +13,12 @@ namespace ScanNow.Web.Controllers
     public class MeTablesController : ControllerBase
     {
         private readonly ITableQrService _tableQrService;
+        private readonly IOrderService _orderService;
 
-        public MeTablesController(ITableQrService tableQrService)
+        public MeTablesController(ITableQrService tableQrService, IOrderService orderService)
         {
             _tableQrService = tableQrService;
+            _orderService = orderService;
         }
 
         [HttpPost("api/me/branches/{branchId:guid}/tables/{tableId:guid}/open")]
@@ -55,6 +58,18 @@ namespace ScanNow.Web.Controllers
             {
                 Result = await _tableQrService.GetMyTableAsync(id),
                 Message = "Get table successfully"
+            };
+        }
+
+        [HttpGet("api/me/tables/{id:guid}/orders")]
+        public async Task<ActionResult<ApiResponse<List<TableOrderHistoryResponse>>>> GetActiveTableOrders(Guid id)
+        {
+            var table = await _tableQrService.GetMyTableAsync(id);
+
+            return new ApiResponse<List<TableOrderHistoryResponse>>
+            {
+                Result = await _orderService.GetActiveBranchTableOrdersAsync(table.BranchId, id),
+                Message = "Get active table orders successfully"
             };
         }
     }

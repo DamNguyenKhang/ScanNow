@@ -89,6 +89,16 @@ namespace ScanNow.Web.Controllers
             };
         }
 
+        [HttpPost("api/public/sessions/{sessionCode}/payment-cancel")]
+        public async Task<ActionResult<ApiResponse<PaymentStatusResponse>>> CancelPendingPayment(string sessionCode)
+        {
+            return new ApiResponse<PaymentStatusResponse>
+            {
+                Result = await _checkoutService.CancelPendingPaymentAsync(sessionCode),
+                Message = "Payment cancelled"
+            };
+        }
+
         [HttpGet("api/public/sessions/{sessionCode}/orders/{orderId}")]
         public async Task<ActionResult<ApiResponse<CustomerOrderResponse>>> GetOrderDetail(string sessionCode, Guid orderId)
         {
