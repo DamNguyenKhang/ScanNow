@@ -15,6 +15,7 @@ namespace ScanNow.Application.Features.MenuManagement
         private static readonly string OwnerRole = UserRole.OWNER.ToString();
         private static readonly string BranchManagerRole = UserRole.BRANCH_MANAGER.ToString();
         private static readonly string StaffRole = UserRole.STAFF.ToString();
+        private static readonly string CashierRole = UserRole.CASHIER.ToString();
         private static readonly string KitchenRole = UserRole.KITCHEN.ToString();
 
         private readonly IMenuManagementRepository _repository;
@@ -456,7 +457,7 @@ namespace ScanNow.Application.Features.MenuManagement
             var userId = GetCurrentUserId();
             var role = _currentUserService.Role;
 
-            if ((role == StaffRole || role == KitchenRole) && await _repository.UserBelongsToBranchAsync(userId, branch.Id))
+            if ((role == StaffRole || role == CashierRole || role == KitchenRole) && await _repository.UserBelongsToBranchAsync(userId, branch.Id))
             {
                 return;
             }

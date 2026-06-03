@@ -10,7 +10,7 @@ using ScanNow.Domain.Enums;
 namespace ScanNow.Web.Controllers
 {
     [ApiController]
-    [Authorize(Roles = $"{nameof(UserRole.CASHIER)},{nameof(UserRole.BRANCH_MANAGER)},{nameof(UserRole.OWNER)}")]
+    [Authorize(Roles = $"{nameof(UserRole.CASHIER)},{nameof(UserRole.STAFF)},{nameof(UserRole.BRANCH_MANAGER)},{nameof(UserRole.OWNER)}")]
     public class CashierController : ControllerBase
     {
         private readonly ICashierService _cashierService;
@@ -41,6 +41,7 @@ namespace ScanNow.Web.Controllers
         }
 
         [HttpPost("api/cashier/branches/{branchId:guid}/orders/{orderId:guid}/checkout")]
+        [Authorize(Roles = $"{nameof(UserRole.CASHIER)},{nameof(UserRole.BRANCH_MANAGER)},{nameof(UserRole.OWNER)}")]
         public async Task<ActionResult<ApiResponse<CashierPaymentResponse>>> Checkout(Guid branchId, Guid orderId, [FromBody] CashierCheckoutRequest request)
         {
             return new ApiResponse<CashierPaymentResponse>
@@ -51,6 +52,7 @@ namespace ScanNow.Web.Controllers
         }
 
         [HttpPost("api/cashier/branches/{branchId:guid}/orders/{orderId:guid}/payment-cancel")]
+        [Authorize(Roles = $"{nameof(UserRole.CASHIER)},{nameof(UserRole.BRANCH_MANAGER)},{nameof(UserRole.OWNER)}")]
         public async Task<ActionResult<ApiResponse<TableOrderHistoryResponse>>> CancelPendingPayment(Guid branchId, Guid orderId)
         {
             return new ApiResponse<TableOrderHistoryResponse>

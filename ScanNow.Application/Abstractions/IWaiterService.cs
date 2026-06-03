@@ -1,3 +1,4 @@
+using ScanNow.Application.Features.Order.DTOs;
 using ScanNow.Application.Features.Waiter.DTOs;
 
 namespace ScanNow.Application.Abstractions
@@ -8,5 +9,6 @@ namespace ScanNow.Application.Abstractions
         Task<ConfirmOrderResponse> ConfirmOrderAsync(Guid orderId, Guid branchId);
         Task<List<ReadyToServeTableGroup>> GetReadyToServeItemsAsync(Guid branchId);
         Task<MarkItemsServedResponse> MarkItemsServedAsync(MarkItemsServedRequest request, Guid branchId);
+        Task<CustomerOrderResponse> CreateWaiterOrderAsync(Guid branchId, CreateWaiterOrderRequest request);
     }
 }

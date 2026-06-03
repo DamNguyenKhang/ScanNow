@@ -2,12 +2,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ScanNow.Application.Abstractions;
 using ScanNow.Application.DTOs;
+using ScanNow.Application.Features.Order.DTOs;
 using ScanNow.Application.Features.Waiter.DTOs;
 
 namespace ScanNow.Web.Controllers
 {
     [ApiController]
-    [Authorize(Roles = "STAFF,BRANCH_MANAGER")]
+    [Authorize(Roles = "STAFF,CASHIER,BRANCH_MANAGER")]
     public class WaiterOrdersController : ControllerBase
     {
         private readonly IWaiterService _waiterService;
@@ -63,6 +64,18 @@ namespace ScanNow.Web.Controllers
             {
                 Result = await _waiterService.MarkItemsServedAsync(request, branchId),
                 Message = "Items marked as served successfully"
+            };
+        }
+
+        [HttpPost("api/waiter/orders")]
+        public async Task<ActionResult<ApiResponse<CustomerOrderResponse>>> CreateOrder(
+            [FromQuery] Guid branchId,
+            [FromBody] CreateWaiterOrderRequest request)
+        {
+            return new ApiResponse<CustomerOrderResponse>
+            {
+                Result = await _waiterService.CreateWaiterOrderAsync(branchId, request),
+                Message = "Waiter order created successfully"
             };
         }
     }

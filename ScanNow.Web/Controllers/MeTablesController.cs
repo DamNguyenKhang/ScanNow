@@ -9,7 +9,7 @@ using ScanNow.Domain.Enums;
 namespace ScanNow.Web.Controllers
 {
     [ApiController]
-    [Authorize(Roles = $"{nameof(UserRole.STAFF)},{nameof(UserRole.KITCHEN)}")]
+    [Authorize(Roles = $"{nameof(UserRole.STAFF)},{nameof(UserRole.CASHIER)},{nameof(UserRole.KITCHEN)}")]
     public class MeTablesController : ControllerBase
     {
         private readonly ITableQrService _tableQrService;

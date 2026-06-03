@@ -19,6 +19,7 @@ namespace ScanNow.Application.Features.TableQr
         private static readonly string OwnerRole = UserRole.OWNER.ToString();
         private static readonly string BranchManagerRole = UserRole.BRANCH_MANAGER.ToString();
         private static readonly string StaffRole = UserRole.STAFF.ToString();
+        private static readonly string CashierRole = UserRole.CASHIER.ToString();
         private static readonly string KitchenRole = UserRole.KITCHEN.ToString();
 
         private readonly ITableQrRepository _repository;
@@ -392,7 +393,7 @@ namespace ScanNow.Application.Features.TableQr
 
             var userId = GetCurrentUserId();
             var role = _currentUserService.Role;
-            if ((role == StaffRole || role == KitchenRole) && await _repository.UserBelongsToBranchAsync(userId, branchId))
+            if ((role == StaffRole || role == CashierRole || role == KitchenRole) && await _repository.UserBelongsToBranchAsync(userId, branchId))
             {
                 return;
             }

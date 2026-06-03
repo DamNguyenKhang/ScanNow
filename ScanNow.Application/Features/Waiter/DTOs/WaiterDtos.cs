@@ -82,4 +82,21 @@ namespace ScanNow.Application.Features.Waiter.DTOs
         public int ItemsServed { get; set; }
         public List<Guid> AffectedOrderIds { get; set; } = new();
     }
+
+    // ─── Waiter Create Order ─────────────────────────────
+
+    public class CreateWaiterOrderItemRequest
+    {
+        public Guid MenuItemId { get; set; }
+        public int Quantity { get; set; } = 1;
+        public string? Note { get; set; }
+    }
+
+    public class CreateWaiterOrderRequest
+    {
+        public Guid TableId { get; set; }
+        public string? CustomerName { get; set; }
+        public string? CustomerNote { get; set; }
+        public List<CreateWaiterOrderItemRequest> Items { get; set; } = new();
+    }
 }
