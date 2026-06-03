@@ -19,6 +19,7 @@ namespace ScanNow.Application.Features.TableQr
         private static readonly string OwnerRole = UserRole.OWNER.ToString();
         private static readonly string BranchManagerRole = UserRole.BRANCH_MANAGER.ToString();
         private static readonly string StaffRole = UserRole.STAFF.ToString();
+        private static readonly string CashierRole = UserRole.CASHIER.ToString();
         private static readonly string KitchenRole = UserRole.KITCHEN.ToString();
 
         private readonly ITableQrRepository _repository;
@@ -169,7 +170,6 @@ namespace ScanNow.Application.Features.TableQr
         {
             await EnsureCanWorkInBranchAsync(branchId);
             var table = await GetTableInBranchAsync(branchId, tableId);
-            CloseExpiredActiveSessions(table);
 
             if (!table.IsActive)
             {
@@ -393,7 +393,7 @@ namespace ScanNow.Application.Features.TableQr
 
             var userId = GetCurrentUserId();
             var role = _currentUserService.Role;
-            if ((role == StaffRole || role == KitchenRole) && await _repository.UserBelongsToBranchAsync(userId, branchId))
+            if ((role == StaffRole || role == CashierRole || role == KitchenRole) && await _repository.UserBelongsToBranchAsync(userId, branchId))
             {
                 return;
             }
@@ -405,32 +405,6 @@ namespace ScanNow.Application.Features.TableQr
         {
             return await _repository.GetActiveSessionByCodeAsync(sessionCode)
                 ?? throw new NotFoundException("Session not found or expired");
-        }
-
-        private static void CloseExpiredActiveSessions(RestaurantTable table)
-        {
-            var now = DateTime.UtcNow;
-            var expiredSessions = table.QrSessions
-                .Where(x => x.IsActive && x.ExpiresAt <= now)
-                .ToList();
-
-            if (expiredSessions.Count == 0)
-            {
-                return;
-            }
-
-            foreach (var session in expiredSessions)
-            {
-                session.IsActive = false;
-                session.UpdatedAt = now;
-            }
-
-            if (table.Status == TableStatus.OCCUPIED && !table.QrSessions.Any(x => x.IsActive && x.ExpiresAt > now))
-            {
-                table.Status = TableStatus.AVAILABLE;
-                table.UpdatedAt = now;
-            }
-
         }
 
         private Guid GetCurrentUserId()
@@ -496,10 +470,7 @@ namespace ScanNow.Application.Features.TableQr
                 QrCodeImageUrl = table.QrCodeImageUrl,
                 Status = table.Status,
                 IsActive = table.IsActive,
-                CurrentSession = table.QrSessions
-                    .Where(x => x.IsActive)
-                    .OrderByDescending(x => x.CreatedAt)
-                    .FirstOrDefault() is { } session ? MapSession(session) : null,
+                CurrentSession = table.QrSessions.FirstOrDefault(x => x.IsActive) is { } session ? MapSession(session) : null,
                 CreatedAt = table.CreatedAt,
                 UpdatedAt = table.UpdatedAt
             };
@@ -538,10 +509,9 @@ namespace ScanNow.Application.Features.TableQr
             var filteredCategories = categories.Where(x => x.IsActive).ToList();
             IEnumerable<MenuItem> filteredItems = items.Where(x => x.BranchId == branchId && x.IsActive && x.IsAvailable && x.Category.IsActive);
 
-            var categoryIds = GetCategoryIds(query);
-            if (categoryIds.Count > 0)
+            if (query.CategoryId.HasValue)
             {
-                filteredItems = filteredItems.Where(x => categoryIds.Contains(x.CategoryId));
+                filteredItems = filteredItems.Where(x => x.CategoryId == query.CategoryId.Value);
             }
 
             if (query.IsFeatured.HasValue)
@@ -668,15 +638,5 @@ namespace ScanNow.Application.Features.TableQr
         }
 
         private static bool IsDesc(string? direction) => direction?.Equals("desc", StringComparison.OrdinalIgnoreCase) == true;
-        private static HashSet<Guid> GetCategoryIds(MenuQuery query)
-        {
-            var categoryIds = query.CategoryIds?.Where(x => x != Guid.Empty).ToHashSet() ?? new HashSet<Guid>();
-            if (query.CategoryId.HasValue && query.CategoryId.Value != Guid.Empty)
-            {
-                categoryIds.Add(query.CategoryId.Value);
-            }
-
-            return categoryIds;
-        }
     }
 }

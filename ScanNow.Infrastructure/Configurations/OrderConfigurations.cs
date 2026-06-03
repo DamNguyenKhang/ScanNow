@@ -22,7 +22,7 @@ namespace ScanNow.Infrastructure.Configurations
             builder.Property(x => x.ServiceChargeAmount).HasColumnType("decimal(10,2)").HasDefaultValue(0m);
             builder.Property(x => x.DiscountAmount).HasColumnType("decimal(10,2)").HasDefaultValue(0m);
             builder.Property(x => x.TotalAmount).HasColumnType("decimal(10,2)").HasDefaultValue(0m).IsRequired();
-            builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).HasDefaultValue(OrderStatus.PENDING).IsRequired();
+            builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(30).HasDefaultValue(OrderStatus.PendingConfirmation).IsRequired();
             builder.Property(x => x.OrderSource).HasConversion<string>().HasMaxLength(20).HasDefaultValue(OrderSource.QR);
             builder.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
 
@@ -68,13 +68,15 @@ namespace ScanNow.Infrastructure.Configurations
             builder.Property(x => x.UnitPrice).HasColumnType("decimal(10,2)").IsRequired();
             builder.Property(x => x.Quantity).HasDefaultValue(1).IsRequired();
             builder.Property(x => x.SubTotal).HasColumnType("decimal(10,2)").IsRequired();
-            builder.Property(x => x.KitchenStatus).HasConversion<string>().HasMaxLength(20).HasDefaultValue(KitchenStatus.PENDING);
+            builder.Property(x => x.Note).HasMaxLength(500);
+            builder.Property(x => x.EstimatedCookingMinutes).HasDefaultValue(0);
+            builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).HasDefaultValue(OrderItemStatus.Pending);
             builder.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
 
             builder.HasIndex(x => x.OrderId);
             builder.HasIndex(x => x.MenuItemId);
-            builder.HasIndex(x => x.KitchenStatus);
-            builder.HasIndex(x => new { x.OrderId, x.KitchenStatus });
+            builder.HasIndex(x => x.Status);
+            builder.HasIndex(x => new { x.OrderId, x.Status });
 
             builder.HasOne(x => x.Order)
                    .WithMany(x => x.Items)

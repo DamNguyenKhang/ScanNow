@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ScanNow.Application.Abstractions;
 using ScanNow.Application.DTOs;
+using ScanNow.Application.Features.Order.DTOs;
 using ScanNow.Application.Features.TableQr.DTOs;
 using ScanNow.Domain.Enums;
 
@@ -12,10 +13,12 @@ namespace ScanNow.Web.Controllers
     public class OwnerTablesController : ControllerBase
     {
         private readonly ITableQrService _tableQrService;
+        private readonly IOrderService _orderService;
 
-        public OwnerTablesController(ITableQrService tableQrService)
+        public OwnerTablesController(ITableQrService tableQrService, IOrderService orderService)
         {
             _tableQrService = tableQrService;
+            _orderService = orderService;
         }
 
         [HttpGet("api/owner/branches/{branchId:guid}/tables")]
@@ -35,6 +38,30 @@ namespace ScanNow.Web.Controllers
             {
                 Result = await _tableQrService.GetManageTableAsync(branchId, id),
                 Message = "Get table successfully"
+            };
+        }
+
+        [HttpGet("api/owner/branches/{branchId:guid}/tables/{id:guid}/orders")]
+        public async Task<ActionResult<ApiResponse<List<TableOrderHistoryResponse>>>> GetTableOrderHistory(Guid branchId, Guid id)
+        {
+            await _tableQrService.GetManageTableAsync(branchId, id);
+
+            return new ApiResponse<List<TableOrderHistoryResponse>>
+            {
+                Result = await _orderService.GetBranchTableOrderHistoryAsync(branchId, id),
+                Message = "Get table order history successfully"
+            };
+        }
+
+        [HttpGet("api/owner/branches/{branchId:guid}/orders")]
+        public async Task<ActionResult<ApiResponse<OrderInvoiceListResponse>>> GetBranchOrders(Guid branchId, [FromQuery] OrderInvoiceQuery query)
+        {
+            await _tableQrService.GetManageTablesAsync(branchId, new TableQuery { PageNumber = 1, PageSize = 1 });
+
+            return new ApiResponse<OrderInvoiceListResponse>
+            {
+                Result = await _orderService.GetBranchOrdersAsync(branchId, query),
+                Message = "Get branch orders successfully"
             };
         }
 

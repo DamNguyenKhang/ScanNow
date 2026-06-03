@@ -30,7 +30,11 @@ namespace ScanNow.Infrastructure
             services.AddScoped<IRestaurantManagementRepository, RestaurantManagementRepository>();
             services.AddScoped<IMenuManagementRepository, MenuManagementRepository>();
             services.AddScoped<IOrderRepository, OrderRepository>();
+            services.AddScoped<IWaiterRepository, WaiterRepository>();
+            services.AddScoped<IKitchenRepository, KitchenRepository>();
             services.AddScoped<ITableQrRepository, TableQrRepository>();
+            services.AddScoped<IBranchSettingsRepository, BranchSettingsRepository>();
+            services.AddScoped<IReportRepository, ReportRepository>();
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             return services;
         }

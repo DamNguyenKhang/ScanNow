@@ -31,7 +31,8 @@ namespace ScanNow.Infrastructure.Data
                 [UserRole.OWNER] = "Owner",
                 [UserRole.BRANCH_MANAGER] = "Branch manager",
                 [UserRole.STAFF] = "Staff",
-                [UserRole.KITCHEN] = "Kitchen"
+                [UserRole.KITCHEN] = "Kitchen",
+                [UserRole.CASHIER] = "Cashier"
             };
 
             foreach (var role in roles)

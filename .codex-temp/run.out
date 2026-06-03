@@ -1,0 +1,117 @@
+Using launch settings from ScanNow.Web\Properties\launchSettings.json...
+Building...
+D:\EXE101\Project\ScanNow\ScanNow.Application\ScanNow.Application.csproj : warning NU1510: PackageReference Microsoft.AspNetCore.Diagnostics.Abstractions will not be pruned. Consider removing this package from your dependencies, as it is likely unnecessary. [D:\EXE101\Project\ScanNow\ScanNow.Web\ScanNow.Web.csproj]
+D:\EXE101\Project\ScanNow\ScanNow.Infrastructure\ScanNow.Infrastructure.csproj : warning NU1902: Package 'MailKit' 4.14.1 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-9j88-vvj5-vhgr [D:\EXE101\Project\ScanNow\ScanNow.Web\ScanNow.Web.csproj]
+D:\EXE101\Project\ScanNow\ScanNow.Web\ScanNow.Web.csproj : warning NU1903: Package 'AutoMapper' 12.0.1 has a known high severity vulnerability, https://github.com/advisories/GHSA-rvv3-g6hj-g44x
+D:\EXE101\Project\ScanNow\ScanNow.Application\ScanNow.Application.csproj : warning NU1510: PackageReference Microsoft.AspNetCore.Mvc.Core will not be pruned. Consider removing this package from your dependencies, as it is likely unnecessary. [D:\EXE101\Project\ScanNow\ScanNow.Web\ScanNow.Web.csproj]
+D:\EXE101\Project\ScanNow\ScanNow.Infrastructure\ScanNow.Infrastructure.csproj : warning NU1902: Package 'MimeKit' 4.14.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-g7hc-96xr-gvvx [D:\EXE101\Project\ScanNow\ScanNow.Web\ScanNow.Web.csproj]
+D:\EXE101\Project\ScanNow\ScanNow.Application\ScanNow.Application.csproj : warning NU1903: Package 'AutoMapper' 12.0.1 has a known high severity vulnerability, https://github.com/advisories/GHSA-rvv3-g6hj-g44x [D:\EXE101\Project\ScanNow\ScanNow.Web\ScanNow.Web.csproj]
+D:\EXE101\Project\ScanNow\ScanNow.Web\ScanNow.Web.csproj : warning NU1902: Package 'MailKit' 4.14.1 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-9j88-vvj5-vhgr
+D:\EXE101\Project\ScanNow\ScanNow.Application\ScanNow.Application.csproj : warning NU1902: Package 'MailKit' 4.14.1 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-9j88-vvj5-vhgr [D:\EXE101\Project\ScanNow\ScanNow.Web\ScanNow.Web.csproj]
+D:\EXE101\Project\ScanNow\ScanNow.Web\ScanNow.Web.csproj : warning NU1902: Package 'MimeKit' 4.14.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-g7hc-96xr-gvvx
+D:\EXE101\Project\ScanNow\ScanNow.Application\ScanNow.Application.csproj : warning NU1902: Package 'MimeKit' 4.14.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-g7hc-96xr-gvvx [D:\EXE101\Project\ScanNow\ScanNow.Web\ScanNow.Web.csproj]
+D:\EXE101\Project\ScanNow\ScanNow.Web\ScanNow.Web.csproj : warning NU1903: Package 'AutoMapper' 12.0.1 has a known high severity vulnerability, https://github.com/advisories/GHSA-rvv3-g6hj-g44x
+D:\EXE101\Project\ScanNow\ScanNow.Web\ScanNow.Web.csproj : warning NU1902: Package 'MailKit' 4.14.1 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-9j88-vvj5-vhgr
+D:\EXE101\Project\ScanNow\ScanNow.Web\ScanNow.Web.csproj : warning NU1902: Package 'MimeKit' 4.14.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-g7hc-96xr-gvvx
+D:\EXE101\Project\ScanNow\ScanNow.Application\ScanNow.Application.csproj : warning NU1510: PackageReference Microsoft.AspNetCore.Diagnostics.Abstractions will not be pruned. Consider removing this package from your dependencies, as it is likely unnecessary.
+D:\EXE101\Project\ScanNow\ScanNow.Application\ScanNow.Application.csproj : warning NU1510: PackageReference Microsoft.AspNetCore.Mvc.Core will not be pruned. Consider removing this package from your dependencies, as it is likely unnecessary.
+D:\EXE101\Project\ScanNow\ScanNow.Application\ScanNow.Application.csproj : warning NU1903: Package 'AutoMapper' 12.0.1 has a known high severity vulnerability, https://github.com/advisories/GHSA-rvv3-g6hj-g44x
+D:\EXE101\Project\ScanNow\ScanNow.Application\ScanNow.Application.csproj : warning NU1902: Package 'MailKit' 4.14.1 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-9j88-vvj5-vhgr
+D:\EXE101\Project\ScanNow\ScanNow.Application\ScanNow.Application.csproj : warning NU1902: Package 'MimeKit' 4.14.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-g7hc-96xr-gvvx
+D:\EXE101\Project\ScanNow\ScanNow.Infrastructure\ScanNow.Infrastructure.csproj : warning NU1902: Package 'MailKit' 4.14.1 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-9j88-vvj5-vhgr
+D:\EXE101\Project\ScanNow\ScanNow.Infrastructure\ScanNow.Infrastructure.csproj : warning NU1902: Package 'MimeKit' 4.14.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-g7hc-96xr-gvvx
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (59ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT "MigrationId", "ProductVersion"
+      FROM "__EFMigrationsHistory"
+      ORDER BY "MigrationId";
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (45ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (43ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
+          "MigrationId" character varying(150) NOT NULL,
+          "ProductVersion" character varying(32) NOT NULL,
+          CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
+      );
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (40ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      LOCK TABLE "__EFMigrationsHistory" IN ACCESS EXCLUSIVE MODE
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (40ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT "MigrationId", "ProductVersion"
+      FROM "__EFMigrationsHistory"
+      ORDER BY "MigrationId";
+info: Microsoft.EntityFrameworkCore.Migrations[20405]
+      No migrations were applied. The database is already up to date.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (48ms) [Parameters=[@normalizedName='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."ConcurrencyStamp", a."Description", a."Name", a."NormalizedName"
+      FROM "AspNetRoles" AS a
+      WHERE a."NormalizedName" = @normalizedName
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (49ms) [Parameters=[@normalizedName='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."ConcurrencyStamp", a."Description", a."Name", a."NormalizedName"
+      FROM "AspNetRoles" AS a
+      WHERE a."NormalizedName" = @normalizedName
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (40ms) [Parameters=[@normalizedName='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."ConcurrencyStamp", a."Description", a."Name", a."NormalizedName"
+      FROM "AspNetRoles" AS a
+      WHERE a."NormalizedName" = @normalizedName
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (39ms) [Parameters=[@normalizedName='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."ConcurrencyStamp", a."Description", a."Name", a."NormalizedName"
+      FROM "AspNetRoles" AS a
+      WHERE a."NormalizedName" = @normalizedName
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (40ms) [Parameters=[@normalizedName='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."ConcurrencyStamp", a."Description", a."Name", a."NormalizedName"
+      FROM "AspNetRoles" AS a
+      WHERE a."NormalizedName" = @normalizedName
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (40ms) [Parameters=[@normalizedName='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."ConcurrencyStamp", a."Description", a."Name", a."NormalizedName"
+      FROM "AspNetRoles" AS a
+      WHERE a."NormalizedName" = @normalizedName
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (41ms) [Parameters=[@normalizedEmail='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."AccessFailedCount", a."AuthProvider", a."AvatarUrl", a."ConcurrencyStamp", a."CreatedAt", a."Email", a."EmailConfirmed", a."ForcePasswordChange", a."FullName", a."IsActive", a."LastLoginAt", a."LockoutEnabled", a."LockoutEnd", a."NormalizedEmail", a."NormalizedUserName", a."PasswordHash", a."PhoneNumber", a."PhoneNumberConfirmed", a."SecurityStamp", a."TwoFactorEnabled", a."UpdatedAt", a."UserName"
+      FROM "AspNetUsers" AS a
+      WHERE a."NormalizedEmail" = @normalizedEmail
+      LIMIT 2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (40ms) [Parameters=[@normalizedUserName='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."AccessFailedCount", a."AuthProvider", a."AvatarUrl", a."ConcurrencyStamp", a."CreatedAt", a."Email", a."EmailConfirmed", a."ForcePasswordChange", a."FullName", a."IsActive", a."LastLoginAt", a."LockoutEnabled", a."LockoutEnd", a."NormalizedEmail", a."NormalizedUserName", a."PasswordHash", a."PhoneNumber", a."PhoneNumberConfirmed", a."SecurityStamp", a."TwoFactorEnabled", a."UpdatedAt", a."UserName"
+      FROM "AspNetUsers" AS a
+      WHERE a."NormalizedUserName" = @normalizedUserName
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (40ms) [Parameters=[@normalizedRoleName='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."ConcurrencyStamp", a."Description", a."Name", a."NormalizedName"
+      FROM "AspNetRoles" AS a
+      WHERE a."NormalizedName" = @normalizedRoleName
+      LIMIT 2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (41ms) [Parameters=[@p='?' (DbType = Guid), @p1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT a."UserId", a."RoleId"
+      FROM "AspNetUserRoles" AS a
+      WHERE a."UserId" = @p AND a."RoleId" = @p1
+      LIMIT 1
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5222
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: D:\EXE101\Project\ScanNow\ScanNow.Web
+warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]
+      Failed to determine the https port for redirect.

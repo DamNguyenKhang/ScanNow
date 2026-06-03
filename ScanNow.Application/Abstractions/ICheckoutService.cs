@@ -6,5 +6,6 @@ namespace ScanNow.Application.Abstractions
     {
         Task<CheckoutResponse> CreateCheckoutAsync(string sessionCode, CreateCheckoutRequest request);
         Task<PaymentStatusResponse> GetPaymentStatusAsync(string sessionCode);
+        Task<PaymentStatusResponse> CancelPendingPaymentAsync(string sessionCode);
     }
 }

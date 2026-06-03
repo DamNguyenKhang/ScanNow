@@ -28,6 +28,8 @@ namespace ScanNow.Infrastructure
         public DbSet<QrSession> QrSessions => Set<QrSession>();
         public DbSet<ItemRating> ItemRatings => Set<ItemRating>();
         public DbSet<DiscountCode> DiscountCodes => Set<DiscountCode>();
+        public DbSet<BranchPaymentConfig> BranchPaymentConfigs => Set<BranchPaymentConfig>();
+        public DbSet<PaperVoucher> PaperVouchers => Set<PaperVoucher>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

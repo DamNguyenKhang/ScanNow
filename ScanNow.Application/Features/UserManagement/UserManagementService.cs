@@ -19,8 +19,9 @@ namespace ScanNow.Application.Features.UserManagement
         private static readonly string BranchManagerRole = UserRole.BRANCH_MANAGER.ToString();
         private static readonly string StaffRole = UserRole.STAFF.ToString();
         private static readonly string KitchenRole = UserRole.KITCHEN.ToString();
-        private static readonly string[] OwnerManagedRoles = [nameof(UserRole.BRANCH_MANAGER), nameof(UserRole.STAFF), nameof(UserRole.KITCHEN)];
-        private static readonly string[] ManagerManagedRoles = [nameof(UserRole.STAFF), nameof(UserRole.KITCHEN)];
+        private static readonly string CashierRole = UserRole.CASHIER.ToString();
+        private static readonly string[] OwnerManagedRoles = [nameof(UserRole.BRANCH_MANAGER), nameof(UserRole.STAFF), nameof(UserRole.KITCHEN), nameof(UserRole.CASHIER)];
+        private static readonly string[] ManagerManagedRoles = [nameof(UserRole.STAFF), nameof(UserRole.KITCHEN), nameof(UserRole.CASHIER)];
 
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<ApplicationRole> _roleManager;

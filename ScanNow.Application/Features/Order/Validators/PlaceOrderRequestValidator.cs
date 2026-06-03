@@ -18,8 +18,8 @@ namespace ScanNow.Application.Features.Order.Validators
                 item.RuleFor(x => x.Quantity)
                     .GreaterThanOrEqualTo(1).WithMessage("Quantity must be at least 1.");
 
-                item.RuleFor(x => x.SpecialRequest)
-                    .MaximumLength(300).When(x => x.SpecialRequest != null);
+                item.RuleFor(x => x.Note)
+                    .MaximumLength(300).When(x => x.Note != null);
             });
 
             RuleFor(x => x.CustomerName)

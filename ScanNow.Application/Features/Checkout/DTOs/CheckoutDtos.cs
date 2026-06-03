@@ -23,6 +23,7 @@ namespace ScanNow.Application.Features.Checkout.DTOs
         public string? AccountName { get; set; }
         public long? Amount { get; set; }
         public string? Description { get; set; }
+        public DateTime? PaymentExpiresAt { get; set; }
     }
 
     public class PaymentStatusResponse

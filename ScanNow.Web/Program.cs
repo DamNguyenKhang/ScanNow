@@ -10,6 +10,7 @@ using ScanNow.Web.Configurations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,7 +25,8 @@ builder.Configuration.AddEnvironmentVariables();
 var connectionString = builder.Configuration.GetConnectionString("ScanNowDB")
     ?? throw new InvalidOperationException("Connection string 'ScanNowDB' is not configured.");
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 var allowedOrigins = new[]
 {
@@ -61,7 +63,8 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
-builder.Services.AddSignalR();
+builder.Services.AddSignalR()
+    .AddJsonProtocol(options => options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services
     .AddDatabase(connectionString)
@@ -129,6 +132,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<ScanNow.Web.Hubs.CartHub>("/hubs/cart");
+app.MapHub<ScanNow.Web.Hubs.OrderHub>("/hubs/orders");
 
 // Auto migrate on startup
 using (var scope = app.Services.CreateScope())

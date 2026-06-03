@@ -58,7 +58,8 @@ namespace ScanNow.Application.Features.UserManagement.Validators
         {
             return role == UserRole.BRANCH_MANAGER.ToString()
                 || role == UserRole.STAFF.ToString()
-                || role == UserRole.KITCHEN.ToString();
+                || role == UserRole.KITCHEN.ToString()
+                || role == UserRole.CASHIER.ToString();
         }
     }
 
@@ -80,7 +81,8 @@ namespace ScanNow.Application.Features.UserManagement.Validators
         {
             return role == UserRole.BRANCH_MANAGER.ToString()
                 || role == UserRole.STAFF.ToString()
-                || role == UserRole.KITCHEN.ToString();
+                || role == UserRole.KITCHEN.ToString()
+                || role == UserRole.CASHIER.ToString();
         }
     }
 

@@ -9,7 +9,7 @@ namespace ScanNow.Web.Controllers
 {
     [ApiController]
     [Route("api/me/branches")]
-    [Authorize(Roles = $"{nameof(UserRole.BRANCH_MANAGER)},{nameof(UserRole.STAFF)},{nameof(UserRole.KITCHEN)}")]
+    [Authorize(Roles = $"{nameof(UserRole.BRANCH_MANAGER)},{nameof(UserRole.STAFF)},{nameof(UserRole.KITCHEN)},{nameof(UserRole.CASHIER)}")]
     public class MyBranchesController : ControllerBase
     {
         private readonly IRestaurantManagementService _restaurantManagementService;
