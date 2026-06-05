@@ -35,6 +35,7 @@ var allowedOrigins = new[]
     builder.Configuration["App:AllowedOrigins"],
     "http://localhost:5173",
     "http://localhost:3000",
+    "https://carwash-magnifier-jogging.ngrok-free.dev",
     "http://localhost:3001"
 }
     .Where(value => !string.IsNullOrWhiteSpace(value))
