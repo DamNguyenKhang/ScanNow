@@ -16,11 +16,26 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-// Load .env from project directory first, then solution root as fallback
-var envPath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
-if (!File.Exists(envPath))
-    envPath = Path.Combine(AppContext.BaseDirectory, ".env");
-DotNetEnv.Env.Load(envPath);
+// Load .env files from both the web project and solution root.
+// Local developers may run the API from either directory.
+var envPaths = new[]
+{
+    Path.Combine(Directory.GetCurrentDirectory(), "..", ".env"),
+    Path.Combine(AppContext.BaseDirectory, ".env"),
+    Path.Combine(Directory.GetCurrentDirectory(), ".env")
+}
+    .Select(Path.GetFullPath)
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .Where(File.Exists)
+    .ToArray();
+
+if (envPaths.Length > 0)
+{
+    foreach (var path in envPaths)
+    {
+        DotNetEnv.Env.Load(path);
+    }
+}
 builder.Configuration.AddEnvironmentVariables();
 var connectionString = builder.Configuration.GetConnectionString("ScanNowDB")
     ?? throw new InvalidOperationException("Connection string 'ScanNowDB' is not configured.");

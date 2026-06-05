@@ -9,13 +9,20 @@ namespace ScanNow.Infrastructure.External
 {
     public class CloudinaryStorageService : IFileStorageService
     {
-        private readonly Cloudinary _cloudinary;
+        private readonly IConfiguration _configuration;
+        private readonly string _folder;
 
         public CloudinaryStorageService(IConfiguration configuration)
         {
-            var cloudName = configuration["Cloudinary:CloudName"];
-            var apiKey = configuration["Cloudinary:ApiKey"];
-            var apiSecret = configuration["Cloudinary:ApiSecret"];
+            _configuration = configuration;
+            _folder = configuration["Cloudinary:Folder"] ?? "Home/Scannow";
+        }
+
+        private Cloudinary CreateCloudinaryClient()
+        {
+            var cloudName = _configuration["Cloudinary:CloudName"];
+            var apiKey = _configuration["Cloudinary:ApiKey"];
+            var apiSecret = _configuration["Cloudinary:ApiSecret"];
 
             if (string.IsNullOrEmpty(cloudName) ||
                 string.IsNullOrEmpty(apiKey) ||
@@ -25,7 +32,7 @@ namespace ScanNow.Infrastructure.External
             }
 
             var account = new Account(cloudName, apiKey, apiSecret);
-            _cloudinary = new Cloudinary(account);
+            return new Cloudinary(account);
         }
 
         public async Task<List<string>> UploadImageAsync(List<IFormFile> files)
@@ -34,6 +41,7 @@ namespace ScanNow.Infrastructure.External
                 throw new NotFoundException("File not found");
 
             var imageUrls = new List<string>();
+            var cloudinary = CreateCloudinaryClient();
 
             foreach (var file in files)
             {
@@ -44,13 +52,13 @@ namespace ScanNow.Infrastructure.External
                 var uploadParams = new ImageUploadParams
                 {
                     File = new FileDescription(file.FileName, stream),
-                    Folder = "ScanNow/images",
+                    Folder = _folder,
                     Transformation = new Transformation()
                         .Quality("auto")
                         .FetchFormat("auto")
                 };
 
-                var result = await _cloudinary.UploadAsync(uploadParams);
+                var result = await cloudinary.UploadAsync(uploadParams);
 
                 if (result.StatusCode != System.Net.HttpStatusCode.OK)
                     throw new ExternalServiceException("email", "errors");
