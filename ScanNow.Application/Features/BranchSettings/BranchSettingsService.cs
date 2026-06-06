@@ -122,8 +122,8 @@ namespace ScanNow.Application.Features.BranchSettings
                 MaxDiscountAmount = request.MaxDiscountAmount,
                 Quantity = request.Quantity,
                 IsActive = request.IsActive,
-                ValidFrom = request.ValidFrom,
-                ValidUntil = request.ValidUntil,
+                ValidFrom = ToUtcDateTime(request.ValidFrom),
+                ValidUntil = ToUtcDateTime(request.ValidUntil),
                 CreatedAt = now,
                 UpdatedAt = now
             };
@@ -160,8 +160,8 @@ namespace ScanNow.Application.Features.BranchSettings
             voucher.MinOrderAmount = request.MinOrderAmount;
             voucher.MaxDiscountAmount = request.MaxDiscountAmount;
             voucher.Quantity = request.Quantity;
-            voucher.ValidFrom = request.ValidFrom;
-            voucher.ValidUntil = request.ValidUntil;
+            voucher.ValidFrom = ToUtcDateTime(request.ValidFrom);
+            voucher.ValidUntil = ToUtcDateTime(request.ValidUntil);
             voucher.IsActive = request.IsActive;
             voucher.UpdatedAt = DateTime.UtcNow;
 
@@ -239,6 +239,21 @@ namespace ScanNow.Application.Features.BranchSettings
         private static string NormalizeCode(string value) => value.Trim().ToUpperInvariant();
 
         private static string? NormalizeNullable(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+        private static DateTime? ToUtcDateTime(DateTime? value)
+        {
+            if (!value.HasValue)
+            {
+                return null;
+            }
+
+            return value.Value.Kind switch
+            {
+                DateTimeKind.Utc => value.Value,
+                DateTimeKind.Local => value.Value.ToUniversalTime(),
+                _ => DateTime.SpecifyKind(value.Value, DateTimeKind.Local).ToUniversalTime()
+            };
+        }
 
         private static string? KeepExistingWhenBlank(string? incoming, string? existing)
         {
