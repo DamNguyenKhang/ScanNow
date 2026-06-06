@@ -31,6 +31,13 @@ namespace ScanNow.Application.Features.Reports.DTOs
         public int Orders { get; set; }
     }
 
+    public class PaymentMethodReportResponse
+    {
+        public string Method { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+        public int Count { get; set; }
+    }
+
     public class OwnerReportResponse
     {
         public DateTime FromDate { get; set; }
@@ -45,6 +52,7 @@ namespace ScanNow.Application.Features.Reports.DTOs
         public List<ReportPointResponse> PeakHours { get; set; } = [];
         public List<TopItemReportResponse> TopItems { get; set; } = [];
         public List<BranchReportResponse> Branches { get; set; } = [];
+        public List<PaymentMethodReportResponse> PaymentMethods { get; set; } = [];
     }
 
     public class AdminDashboardReportResponse

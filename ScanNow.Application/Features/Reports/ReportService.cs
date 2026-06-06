@@ -13,6 +13,7 @@ namespace ScanNow.Application.Features.Reports
     {
         private static readonly string OwnerRole = UserRole.OWNER.ToString();
         private static readonly string BranchManagerRole = UserRole.BRANCH_MANAGER.ToString();
+        private static readonly TimeZoneInfo VietnamTimeZone = ResolveVietnamTimeZone();
 
         private readonly IReportRepository _repository;
         private readonly ICurrentUserService _currentUserService;
@@ -112,8 +113,8 @@ namespace ScanNow.Application.Features.Reports
 
             return new OwnerReportResponse
             {
-                FromDate = from,
-                ToDate = to.AddTicks(-1),
+                FromDate = TimeZoneInfo.ConvertTimeFromUtc(from, VietnamTimeZone),
+                ToDate = TimeZoneInfo.ConvertTimeFromUtc(to.AddTicks(-1), VietnamTimeZone),
                 TotalRevenue = totalRevenue,
                 PaidRevenue = paidRevenue,
                 PendingRevenue = pendingOrders.Sum(x => x.TotalAmount),
@@ -123,6 +124,7 @@ namespace ScanNow.Application.Features.Reports
                 RevenueByDay = BuildRevenueByDay(orders, from, to),
                 PeakHours = BuildPeakHours(orders),
                 TopItems = BuildTopItems(orders),
+                PaymentMethods = BuildPaymentMethods(orders),
                 Branches = branches
                     .Select(branch =>
                     {
@@ -143,9 +145,15 @@ namespace ScanNow.Application.Features.Reports
         private static List<ReportPointResponse> BuildRevenueByDay(List<OrderEntity> orders, DateTime from, DateTime to)
         {
             var days = new List<ReportPointResponse>();
-            for (var day = from.Date; day < to.Date; day = day.AddDays(1))
+            var fromLocal = TimeZoneInfo.ConvertTimeFromUtc(from, VietnamTimeZone).Date;
+            var toLocal = TimeZoneInfo.ConvertTimeFromUtc(to, VietnamTimeZone).Date;
+
+            for (var day = fromLocal; day < toLocal; day = day.AddDays(1))
             {
-                var dayOrders = orders.Where(x => x.CreatedAt.Date == day).ToList();
+                var nextDay = day.AddDays(1);
+                var dayStartUtc = ToVietnamLocalDateUtc(day);
+                var dayEndUtc = ToVietnamLocalDateUtc(nextDay);
+                var dayOrders = orders.Where(x => AsUtc(x.CreatedAt) >= dayStartUtc && AsUtc(x.CreatedAt) < dayEndUtc).ToList();
                 days.Add(new ReportPointResponse
                 {
                     Label = day.ToString("dd/MM"),
@@ -163,7 +171,9 @@ namespace ScanNow.Application.Features.Reports
             return Enumerable.Range(0, 24)
                 .Select(hour =>
                 {
-                    var hourOrders = orders.Where(x => x.CreatedAt.Hour == hour).ToList();
+                    var hourOrders = orders
+                        .Where(x => TimeZoneInfo.ConvertTimeFromUtc(AsUtc(x.CreatedAt), VietnamTimeZone).Hour == hour)
+                        .ToList();
                     return new ReportPointResponse
                     {
                         Label = $"{hour:00}:00",
@@ -192,6 +202,22 @@ namespace ScanNow.Application.Features.Reports
                 .ToList();
         }
 
+        private static List<PaymentMethodReportResponse> BuildPaymentMethods(List<OrderEntity> orders)
+        {
+            return orders
+                .SelectMany(x => x.Payments)
+                .Where(x => x.Status == PaymentStatus.SUCCESS)
+                .GroupBy(x => x.Method)
+                .Select(group => new PaymentMethodReportResponse
+                {
+                    Method = group.Key.ToString(),
+                    Amount = group.Sum(x => x.Amount),
+                    Count = group.Count()
+                })
+                .OrderByDescending(x => x.Amount)
+                .ToList();
+        }
+
         private static bool HasSuccessfulPayment(OrderEntity order)
         {
             return order.Payments.Any(x => x.Status == PaymentStatus.SUCCESS);
@@ -199,7 +225,7 @@ namespace ScanNow.Application.Features.Reports
 
         private static (DateTime From, DateTime To) NormalizeRange(ReportQuery query)
         {
-            var now = DateTime.UtcNow;
+            var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VietnamTimeZone);
             var from = (query.FromDate ?? now.Date.AddDays(-29)).Date;
             var to = (query.ToDate ?? now.Date).Date.AddDays(1);
 
@@ -208,12 +234,39 @@ namespace ScanNow.Application.Features.Reports
                 to = from.AddDays(1);
             }
 
-            return (DateTime.SpecifyKind(from, DateTimeKind.Utc), DateTime.SpecifyKind(to, DateTimeKind.Utc));
+            return (ToVietnamLocalDateUtc(from), ToVietnamLocalDateUtc(to));
         }
 
         private static DateTime FirstDayOfMonth(DateTime value)
         {
             return new DateTime(value.Year, value.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        }
+
+        private static DateTime ToVietnamLocalDateUtc(DateTime localDate)
+        {
+            var unspecified = DateTime.SpecifyKind(localDate.Date, DateTimeKind.Unspecified);
+            return TimeZoneInfo.ConvertTimeToUtc(unspecified, VietnamTimeZone);
+        }
+
+        private static DateTime AsUtc(DateTime value)
+        {
+            return value.Kind == DateTimeKind.Utc ? value : DateTime.SpecifyKind(value, DateTimeKind.Utc);
+        }
+
+        private static TimeZoneInfo ResolveVietnamTimeZone()
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+            }
+            catch (InvalidTimeZoneException)
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+            }
         }
     }
 }
