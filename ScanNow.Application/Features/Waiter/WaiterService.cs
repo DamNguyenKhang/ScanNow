@@ -50,7 +50,7 @@ namespace ScanNow.Application.Features.Waiter
             if (order.BranchId != branchId)
                 throw new ForbiddenException("You do not have permission to confirm this order");
 
-            if (order.Status != OrderStatus.PendingConfirmation)
+            if (order.Status == OrderStatus.Cancelled || order.Status == OrderStatus.Completed)
                 throw new BusinessRuleException($"Order cannot be confirmed. Current status: {order.Status}");
 
             var now = DateTime.UtcNow;
@@ -59,6 +59,9 @@ namespace ScanNow.Application.Features.Waiter
                 .Where(x => x.Status == OrderItemStatus.Pending)
                 .ToList();
 
+            if (!itemsToConfirm.Any())
+                throw new BusinessRuleException("This order has no pending items to confirm");
+
             foreach (var item in itemsToConfirm)
             {
                 item.Status = OrderItemStatus.Confirmed;
@@ -66,8 +69,8 @@ namespace ScanNow.Application.Features.Waiter
                 item.UpdatedAt = now;
             }
 
-            order.Status = OrderStatus.Confirmed;
-            order.ConfirmedAt = now;
+            order.Status = CalculateOrderStatus(order.Items.ToList());
+            order.ConfirmedAt ??= now;
             order.UpdatedAt = now;
 
             await _unitOfWork.SaveChangesAsync();
@@ -311,18 +314,22 @@ namespace ScanNow.Application.Features.Waiter
                 TotalAmount = order.TotalAmount,
                 Status = order.Status,
                 CreatedAt = order.CreatedAt,
-                Items = order.Items.Select(i => new PendingOrderItemResponse
-                {
-                    OrderItemId = i.Id,
-                    MenuItemId = i.MenuItemId,
-                    MenuItemName = i.MenuItemName,
-                    UnitPrice = i.UnitPrice,
-                    Quantity = i.Quantity,
-                    SubTotal = i.SubTotal,
-                    Note = i.Note,
-                    Status = i.Status,
-                    CreatedAt = i.CreatedAt
-                }).ToList()
+                Items = order.Items
+                    .Where(i => i.Status == OrderItemStatus.Pending)
+                    .OrderBy(i => i.CreatedAt)
+                    .Select(i => new PendingOrderItemResponse
+                    {
+                        OrderItemId = i.Id,
+                        MenuItemId = i.MenuItemId,
+                        MenuItemName = i.MenuItemName,
+                        UnitPrice = i.UnitPrice,
+                        Quantity = i.Quantity,
+                        SubTotal = i.SubTotal,
+                        Note = i.Note,
+                        Status = i.Status,
+                        CreatedAt = i.CreatedAt
+                    })
+                    .ToList()
             };
         }
 
@@ -332,6 +339,9 @@ namespace ScanNow.Application.Features.Waiter
 
             if (!activeItems.Any())
                 return OrderStatus.Cancelled;
+
+            if (activeItems.Any(x => x.Status == OrderItemStatus.Pending))
+                return OrderStatus.PendingConfirmation;
 
             if (activeItems.All(x => x.Status == OrderItemStatus.Served))
                 return OrderStatus.Served;

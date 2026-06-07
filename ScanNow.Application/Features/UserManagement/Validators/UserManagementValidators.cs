@@ -36,6 +36,7 @@ namespace ScanNow.Application.Features.UserManagement.Validators
             RuleFor(x => x.Username).NotEmpty().MaximumLength(50);
             RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(256);
             RuleFor(x => x.PhoneNumber).MaximumLength(50);
+            RuleFor(x => x.Password).MinimumLength(6).When(x => !string.IsNullOrWhiteSpace(x.Password));
         }
     }
 

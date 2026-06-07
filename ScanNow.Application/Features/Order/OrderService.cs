@@ -51,63 +51,123 @@ namespace ScanNow.Application.Features.Order
 
             Domain.Entities.Order order;
 
-            if (session.ActiveOrderId.HasValue)
+            try
             {
-                order = await _repository.GetActiveOrderByIdAsync(session.ActiveOrderId.Value)
-                    ?? throw new NotFoundException("Active order not found");
-
-                await _repository.MarkPendingPaymentsFailedAsync(order.Id, DateTime.UtcNow);
-
-                foreach (var item in orderItems)
+                if (session.ActiveOrderId.HasValue)
                 {
-                    item.OrderId = order.Id;
-                    order.Items.Add(item);
+                    var existingOrder = await _repository.GetActiveOrderByIdAsync(session.ActiveOrderId.Value);
+
+                    // If current order is completed (paid) or not found, start a fresh order for this session
+                    if (existingOrder == null || existingOrder.Status == OrderStatus.Completed)
+                    {
+                        await _repository.MarkPendingPaymentsFailedAsync(session.ActiveOrderId.Value, DateTime.UtcNow);
+
+                        var orderNumber = GenerateOrderNumber();
+                        order = new Domain.Entities.Order
+                        {
+                            Id = Guid.NewGuid(),
+                            BranchId = session.BranchId,
+                            TableId = session.TableId,
+                            OrderNumber = orderNumber,
+                            CustomerName = request.CustomerName?.Trim(),
+                            CustomerPhone = request.CustomerPhone?.Trim(),
+                            CustomerNote = request.CustomerNote?.Trim(),
+                            SubTotal = subTotal,
+                            VatPercent = vatPercent,
+                            VatAmount = vatAmount,
+                            ServiceChargePercent = serviceChargePercent,
+                            ServiceChargeAmount = serviceChargeAmount,
+                            DiscountAmount = 0,
+                            TotalAmount = totalAmount,
+                            Status = OrderStatus.PendingConfirmation,
+                            OrderSource = OrderSource.QR,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow,
+                            Items = orderItems
+                        };
+
+                        await _repository.AddOrderAsync(order);
+
+                        session.ActiveOrderId = order.Id;
+                        session.UpdatedAt = DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        // Existing active order — append items to it
+                        order = existingOrder;
+
+                        await _repository.MarkPendingPaymentsFailedAsync(order.Id, DateTime.UtcNow);
+
+                        var existingItems = order.Items.ToList();
+                        foreach (var item in orderItems)
+                        {
+                            item.OrderId = order.Id;
+                        }
+
+                        await _repository.AddOrderItemsAsync(orderItems);
+
+                        foreach (var item in orderItems)
+                        {
+                            if (order.Items.All(existingItem => existingItem.Id != item.Id))
+                            {
+                                order.Items.Add(item);
+                            }
+                        }
+
+                        order.SubTotal += subTotal;
+                        order.VatAmount += vatAmount;
+                        order.ServiceChargeAmount += serviceChargeAmount;
+                        order.TotalAmount += totalAmount;
+                        order.Status = WaiterService.CalculateOrderStatus(existingItems.Concat(orderItems).ToList());
+                        order.UpdatedAt = DateTime.UtcNow;
+                    }
+                }
+                else
+                {
+                    var orderNumber = GenerateOrderNumber();
+                    order = new Domain.Entities.Order
+                    {
+                        Id = Guid.NewGuid(),
+                        BranchId = session.BranchId,
+                        TableId = session.TableId,
+                        OrderNumber = orderNumber,
+                        CustomerName = request.CustomerName?.Trim(),
+                        CustomerPhone = request.CustomerPhone?.Trim(),
+                        CustomerNote = request.CustomerNote?.Trim(),
+                        SubTotal = subTotal,
+                        VatPercent = vatPercent,
+                        VatAmount = vatAmount,
+                        ServiceChargePercent = serviceChargePercent,
+                        ServiceChargeAmount = serviceChargeAmount,
+                        DiscountAmount = 0,
+                        TotalAmount = totalAmount,
+                        Status = OrderStatus.PendingConfirmation,
+                        OrderSource = OrderSource.QR,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                        Items = orderItems
+                    };
+
+                    await _repository.AddOrderAsync(order);
+
+                    session.ActiveOrderId = order.Id;
+                    session.UpdatedAt = DateTime.UtcNow;
                 }
 
-                order.SubTotal += subTotal;
-                order.VatAmount += vatAmount;
-                order.ServiceChargeAmount += serviceChargeAmount;
-                order.TotalAmount += totalAmount;
-                order.Status = WaiterService.CalculateOrderStatus(order.Items.ToList());
-                order.UpdatedAt = DateTime.UtcNow;
+                await _unitOfWork.SaveChangesAsync();
+
+                var response = CustomerOrderMapper.Map(order);
+                await _publisher.PublishOrderUpdatedAsync(response);
+                return response;
             }
-            else
+            catch (BaseException)
             {
-                var orderNumber = GenerateOrderNumber();
-                order = new Domain.Entities.Order
-                {
-                    Id = Guid.NewGuid(),
-                    BranchId = session.BranchId,
-                    TableId = session.TableId,
-                    OrderNumber = orderNumber,
-                    CustomerName = request.CustomerName?.Trim(),
-                    CustomerPhone = request.CustomerPhone?.Trim(),
-                    CustomerNote = request.CustomerNote?.Trim(),
-                    SubTotal = subTotal,
-                    VatPercent = vatPercent,
-                    VatAmount = vatAmount,
-                    ServiceChargePercent = serviceChargePercent,
-                    ServiceChargeAmount = serviceChargeAmount,
-                    DiscountAmount = 0,
-                    TotalAmount = totalAmount,
-                    Status = OrderStatus.PendingConfirmation,
-                    OrderSource = OrderSource.QR,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
-                    Items = orderItems
-                };
-
-                await _repository.AddOrderAsync(order);
-
-                session.ActiveOrderId = order.Id;
-                session.UpdatedAt = DateTime.UtcNow;
+                throw;
             }
-
-            await _unitOfWork.SaveChangesAsync();
-
-            var response = CustomerOrderMapper.Map(order);
-            await _publisher.PublishOrderUpdatedAsync(response);
-            return response;
+            catch (Exception ex)
+            {
+                throw new DomainException($"DEBUG ERROR: {ex.Message} | StackTrace: {ex.StackTrace}", System.Net.HttpStatusCode.InternalServerError);
+            }
         }
 
         public async Task<CustomerOrderResponse> GetPublicOrderDetailAsync(string sessionCode, Guid orderId)

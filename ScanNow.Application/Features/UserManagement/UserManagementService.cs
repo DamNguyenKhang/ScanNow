@@ -150,6 +150,7 @@ namespace ScanNow.Application.Features.UserManagement
             await EnsureUsernameUniqueAsync(request.Username, id);
 
             UpdateBasicInfo(user, request.FullName, request.Username, request.Email, request.PhoneNumber);
+            await UpdatePasswordIfProvidedAsync(user, request.Password);
             EnsureSucceeded(await _userManager.UpdateAsync(user));
 
             var restaurant = (await _repository.GetRestaurantsByOwnerIdsAsync([id])).FirstOrDefault();
@@ -616,6 +617,17 @@ namespace ScanNow.Application.Features.UserManagement
             user.UserName = username.Trim();
             user.PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim();
             user.UpdatedAt = DateTime.UtcNow;
+        }
+
+        private async Task UpdatePasswordIfProvidedAsync(ApplicationUser user, string? password)
+        {
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                return;
+            }
+
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            EnsureSucceeded(await _userManager.ResetPasswordAsync(user, token, password.Trim()));
         }
 
         private async Task BanAsync(ApplicationUser user)

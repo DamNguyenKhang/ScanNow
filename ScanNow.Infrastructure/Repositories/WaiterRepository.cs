@@ -20,8 +20,14 @@ namespace ScanNow.Infrastructure.Repositories
                 .Include(x => x.Table)
                 .Include(x => x.Items)
                     .ThenInclude(i => i.MenuItem)
-                .Where(x => x.BranchId == branchId && x.Status == OrderStatus.PendingConfirmation)
-                .OrderBy(x => x.CreatedAt)
+                .Where(x =>
+                    x.BranchId == branchId &&
+                    x.Status != OrderStatus.Cancelled &&
+                    x.Status != OrderStatus.Completed &&
+                    x.Items.Any(item => item.Status == OrderItemStatus.Pending))
+                .OrderBy(x => x.Items
+                    .Where(item => item.Status == OrderItemStatus.Pending)
+                    .Min(item => item.CreatedAt))
                 .ToListAsync(ct);
         }
 

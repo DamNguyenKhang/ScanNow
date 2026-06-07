@@ -14,6 +14,7 @@ namespace ScanNow.Domain.Abstractions.Persistence
         Task<List<Order>> GetOrdersByBranchTableAsync(Guid branchId, Guid tableId, CancellationToken ct = default);
         Task<List<Order>> GetActiveSessionOrdersByBranchTableAsync(Guid branchId, Guid tableId, CancellationToken ct = default);
         Task AddOrderAsync(Order order, CancellationToken ct = default);
+        Task AddOrderItemsAsync(IEnumerable<OrderItem> items, CancellationToken ct = default);
         Task AddPaymentAsync(Payment payment, CancellationToken ct = default);
         Task<int> MarkPaymentSucceededAsync(Guid paymentId, string? transactionId, DateTime paidAt, CancellationToken ct = default);
         Task<int> MarkOrderCompletedAsync(Guid orderId, DateTime completedAt, CancellationToken ct = default);

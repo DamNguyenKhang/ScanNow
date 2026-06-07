@@ -123,6 +123,11 @@ namespace ScanNow.Infrastructure.Repositories
             return _context.Orders.AddAsync(order, ct).AsTask();
         }
 
+        public Task AddOrderItemsAsync(IEnumerable<OrderItem> items, CancellationToken ct = default)
+        {
+            return _context.OrderItems.AddRangeAsync(items, ct);
+        }
+
         public Task AddPaymentAsync(Payment payment, CancellationToken ct = default)
         {
             return _context.Payments.AddAsync(payment, ct).AsTask();
