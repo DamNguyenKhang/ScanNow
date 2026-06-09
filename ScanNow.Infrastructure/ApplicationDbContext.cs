@@ -1,14 +1,18 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using ScanNow.Domain.Abstractions;
 using ScanNow.Domain.Entities;
 
 namespace ScanNow.Infrastructure
 {
     public class ApplicationDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>
     {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
+        private readonly ITenantContext? _tenantContext;
+
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, ITenantContext? tenantContext = null)
             : base(options)
         {
+            _tenantContext = tenantContext;
         }
 
         public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -35,6 +39,22 @@ namespace ScanNow.Infrastructure
         {
             base.OnModelCreating(builder);
             builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
+
+            // Tenant isolation at the Restaurant level.
+            //
+            // Filtering Branch by RestaurantId is the single enforcement point:
+            // all sub-entities (orders, menu items, tables …) are reached through a
+            // branchId that comes from the URL route parameters already used by every
+            // controller. Because Branch is filtered, a branchId belonging to a
+            // different restaurant can never be resolved — it simply returns no rows.
+            //
+            // When _tenantContext is null (migrations / design-time) or IsResolved is
+            // false (requests without a subdomain, e.g. admin tools), no filter runs.
+            builder.Entity<Branch>()
+                .HasQueryFilter(b =>
+                    _tenantContext == null ||
+                    !_tenantContext.IsResolved ||
+                    b.RestaurantId == _tenantContext.RestaurantId!.Value);
         }
     }
 }

@@ -2,12 +2,14 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using ScanNow.Domain.Abstractions;
 using ScanNow.Domain.Abstractions.External;
 using ScanNow.Domain.Abstractions.Persistence;
 using ScanNow.Domain.Entities;
 using ScanNow.Infrastructure.External;
 using ScanNow.Infrastructure.Repositories;
 using ScanNow.Infrastructure.Settings;
+using ScanNow.Infrastructure.Tenancy;
 
 namespace ScanNow.Infrastructure
 {
@@ -15,6 +17,11 @@ namespace ScanNow.Infrastructure
     {
         public static IServiceCollection AddInfrastructure(this IServiceCollection services)
         {
+            // Tenant context: scoped per request so the middleware can populate it
+            // and the DbContext can read it for global query filters.
+            services.AddScoped<TenantContext>();
+            services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
+
             services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
             {
                 options.SignIn.RequireConfirmedEmail = true;
