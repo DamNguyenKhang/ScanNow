@@ -62,9 +62,9 @@ var allowedOrigins = new[]
     .Distinct(StringComparer.OrdinalIgnoreCase)
     .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-// Domain used for multi-tenant subdomain routing (e.g. tenant1.scannow.vn).
+// Domain used for multi-tenant subdomain routing (e.g. tenant1.scannow.site).
 // Set App:ProductionDomain in appsettings / env to enable wildcard subdomain CORS.
-var productionDomain = builder.Configuration["App:ProductionDomain"]; // e.g. "scannow.vn"
+var productionDomain = builder.Configuration["App:ProductionDomain"]; // e.g. "scannow.site"
 
 builder.Services.AddCors(options =>
 {
@@ -78,12 +78,12 @@ builder.Services.AddCors(options =>
                     return true;
 
                 // Allow any subdomain of the configured production domain.
-                // e.g. "https://tenant1.scannow.vn" when productionDomain = "scannow.vn"
+                // e.g. "https://tenant1.scannow.site" when productionDomain = "scannow.site"
                 if (!string.IsNullOrWhiteSpace(productionDomain))
                 {
                     if (Uri.TryCreate(origin, UriKind.Absolute, out var uri))
                     {
-                        var host = uri.Host; // "tenant1.scannow.vn"
+                        var host = uri.Host; // "tenant1.scannow.site"
                         if (host.EndsWith($".{productionDomain}", StringComparison.OrdinalIgnoreCase))
                             return true;
                     }

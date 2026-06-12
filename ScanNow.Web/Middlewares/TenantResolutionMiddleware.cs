@@ -16,7 +16,7 @@ namespace ScanNow.Web.Middlewares
     ///
     /// Resolution order (first match wins):
     ///   1. X-Tenant-Slug request header  ← set by the frontend when FE and API are on
-    ///      different domains (e.g. pho24.scannow.vn → api.scannow.vn).
+    ///      different domains (e.g. pho24.scannow.site → api.scannow.site).
     ///   2. Request Host subdomain         ← when the API itself is on a tenant subdomain.
     /// </summary>
     public class TenantResolutionMiddleware
