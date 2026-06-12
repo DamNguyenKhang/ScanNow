@@ -32,6 +32,7 @@ namespace ScanNow.Application.Features.TableQr
         private readonly IValidator<JoinSessionRequest> _joinSessionValidator;
         private readonly IValidator<MenuQuery> _menuQueryValidator;
         private readonly IConfiguration _configuration;
+        private readonly ITenantUrlBuilder _urlBuilder;
 
         public TableQrService(
             ITableQrRepository repository,
@@ -43,7 +44,8 @@ namespace ScanNow.Application.Features.TableQr
             IValidator<UpdateTableStatusRequest> statusValidator,
             IValidator<JoinSessionRequest> joinSessionValidator,
             IValidator<MenuQuery> menuQueryValidator,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ITenantUrlBuilder urlBuilder)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
@@ -55,6 +57,7 @@ namespace ScanNow.Application.Features.TableQr
             _joinSessionValidator = joinSessionValidator;
             _menuQueryValidator = menuQueryValidator;
             _configuration = configuration;
+            _urlBuilder = urlBuilder;
         }
 
         public async Task<ScanNow.Application.Features.RestaurantManagement.DTOs.PagedResult<TableResponse>> GetManageTablesAsync(Guid branchId, TableQuery query)
@@ -74,6 +77,7 @@ namespace ScanNow.Application.Features.TableQr
         {
             await _createTableValidator.ValidateAndThrowAsync(request);
             await EnsureCanManageBranchAsync(branchId);
+            var branch = await GetBranchOrThrowAsync(branchId);
 
             var tableNumber = request.TableNumber.Trim();
             if (await _repository.TableNumberExistsAsync(branchId, tableNumber))
@@ -89,7 +93,7 @@ namespace ScanNow.Application.Features.TableQr
                 TableNumber = tableNumber,
                 Capacity = request.Capacity,
                 QrCodeToken = qrCodeToken,
-                QrCodeUrl = BuildQrCodeUrl(qrCodeToken),
+                QrCodeUrl = BuildQrCodeUrl(branch.Restaurant?.Slug, qrCodeToken),
                 Status = TableStatus.AVAILABLE,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
@@ -150,7 +154,7 @@ namespace ScanNow.Application.Features.TableQr
             var table = await GetManageTableOrThrowAsync(tableId);
             var qrCodeToken = await GenerateUniqueQrCodeTokenAsync();
             table.QrCodeToken = qrCodeToken;
-            table.QrCodeUrl = BuildQrCodeUrl(qrCodeToken);
+            table.QrCodeUrl = BuildQrCodeUrl(table.Branch?.Restaurant?.Slug, qrCodeToken);
             table.QrCodeImageUrl = null;
             table.UpdatedAt = DateTime.UtcNow;
             await _unitOfWork.SaveChangesAsync();
@@ -161,7 +165,7 @@ namespace ScanNow.Application.Features.TableQr
         {
             var table = await GetManageTableOrThrowAsync(tableId);
             using var generator = new QRCodeGenerator();
-            using var data = generator.CreateQrCode(table.QrCodeUrl ?? BuildQrCodeUrl(table.QrCodeToken), QRCodeGenerator.ECCLevel.Q);
+            using var data = generator.CreateQrCode(table.QrCodeUrl ?? BuildQrCodeUrl(table.Branch?.Restaurant?.Slug, table.QrCodeToken), QRCodeGenerator.ECCLevel.Q);
             var qrCode = new PngByteQRCode(data);
             return qrCode.GetGraphic(12);
         }
@@ -443,17 +447,9 @@ namespace ScanNow.Application.Features.TableQr
             throw new ConflictException("Unable to generate session code");
         }
 
-        private string BuildQrCodeUrl(string qrCodeToken)
+        private string BuildQrCodeUrl(string? slug, string qrCodeToken)
         {
-            var frontendBaseUrl = _configuration["App:FrontendBaseUrl"] ?? _configuration["App:ClientUrl"];
-            var tablePath = _configuration["App:QrTablePath"] ?? "/tables";
-
-            if (string.IsNullOrWhiteSpace(frontendBaseUrl))
-            {
-                return $"{tablePath.TrimEnd('/')}/{qrCodeToken}";
-            }
-
-            return $"{frontendBaseUrl.TrimEnd('/')}/{tablePath.Trim('/')}/{qrCodeToken}";
+            return _urlBuilder.BuildTenantTableUrl(slug, qrCodeToken);
         }
 
         private static TableResponse MapTable(RestaurantTable table)

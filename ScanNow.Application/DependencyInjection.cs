@@ -16,6 +16,7 @@ using ScanNow.Application.Features.Cart;
 using ScanNow.Application.Features.Waiter;
 using ScanNow.Application.Features.BranchSettings;
 using ScanNow.Application.Features.Reports;
+using ScanNow.Application.Features.Common;
 using System.Reflection;
 
 namespace ScanNow.Application
@@ -28,6 +29,7 @@ namespace ScanNow.Application
 
             services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
 
+            services.AddScoped<ITenantUrlBuilder, TenantUrlBuilder>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IUserManagementService, UserManagementService>();
             services.AddScoped<IRestaurantManagementService, RestaurantManagementService>();

@@ -21,6 +21,7 @@ namespace ScanNow.Application.Features.Checkout
         private readonly IValidator<CreateCheckoutRequest> _checkoutValidator;
         private readonly IOrderUpdatePublisher _publisher;
         private readonly IConfiguration _configuration;
+        private readonly ITenantUrlBuilder _urlBuilder;
 
         public CheckoutService(
             IOrderRepository orderRepository,
@@ -29,7 +30,8 @@ namespace ScanNow.Application.Features.Checkout
             IBranchSettingsRepository branchSettingsRepository,
             IValidator<CreateCheckoutRequest> checkoutValidator,
             IOrderUpdatePublisher publisher,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ITenantUrlBuilder urlBuilder)
         {
             _orderRepository = orderRepository;
             _unitOfWork = unitOfWork;
@@ -38,6 +40,7 @@ namespace ScanNow.Application.Features.Checkout
             _checkoutValidator = checkoutValidator;
             _publisher = publisher;
             _configuration = configuration;
+            _urlBuilder = urlBuilder;
         }
 
         public async Task<CheckoutResponse> CreateCheckoutAsync(string sessionCode, CreateCheckoutRequest request)
@@ -53,7 +56,7 @@ namespace ScanNow.Application.Features.Checkout
                 throw new BusinessRuleException("No active order found for this session. Please place an order first.");
             }
 
-            var order = await _orderRepository.GetOrderWithPaymentsAsync(session.ActiveOrderId.Value)
+            var order = await _orderRepository.GetOrderWithDetailsAsync(session.ActiveOrderId.Value)
                 ?? throw new NotFoundException("Order not found");
 
             if (order.Status == OrderStatus.Completed)
@@ -276,8 +279,8 @@ namespace ScanNow.Application.Features.Checkout
                 PayOsClientId = config.PayOsClientId,
                 PayOsApiKey = config.PayOsApiKey,
                 PayOsChecksumKey = config.PayOsChecksumKey,
-                ReturnUrl = BuildPaymentRedirectUrl("return", session.SessionToken, order.Id),
-                CancelUrl = BuildPaymentRedirectUrl("cancel", session.SessionToken, order.Id)
+                ReturnUrl = BuildPaymentRedirectUrl("return", session.SessionToken, order),
+                CancelUrl = BuildPaymentRedirectUrl("cancel", session.SessionToken, order)
             });
 
             if (!linkResult.Success)
@@ -393,13 +396,10 @@ namespace ScanNow.Application.Features.Checkout
 
         private static string BuildPaymentDescription(long orderCode) => $"SN {orderCode}";
 
-        private string BuildPaymentRedirectUrl(string result, string sessionCode, Guid orderId)
+        private string BuildPaymentRedirectUrl(string result, string sessionCode, Domain.Entities.Order order)
         {
-            var baseUrl = NormalizeUrl(_configuration["App:ClientUrl"])
-                ?? NormalizeUrl(_configuration["App:FrontendBaseUrl"])
-                ?? "http://localhost:3000";
-
-            return $"{baseUrl}/payment/{result}?sessionCode={Uri.EscapeDataString(sessionCode)}&orderId={orderId}";
+            var query = $"sessionCode={Uri.EscapeDataString(sessionCode)}&orderId={order.Id}";
+            return _urlBuilder.BuildTenantPaymentUrl(order.Branch?.Restaurant?.Slug, result, query);
         }
 
         private static string? NormalizeUrl(string? value)

@@ -34,6 +34,7 @@ namespace ScanNow.Application.Features.Auth
         private readonly IRefreshTokenRepository _refreshTokenRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
+        private readonly ITenantUrlBuilder _urlBuilder;
 
         public AuthService(
             UserManager<ApplicationUser> userManager,
@@ -43,7 +44,8 @@ namespace ScanNow.Application.Features.Auth
             IEmailService emailService,
             IRefreshTokenRepository refreshTokenRepository,
             IUnitOfWork unitOfWork,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ITenantUrlBuilder urlBuilder)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -53,6 +55,7 @@ namespace ScanNow.Application.Features.Auth
             _refreshTokenRepository = refreshTokenRepository;
             _unitOfWork = unitOfWork;
             _configuration = configuration;
+            _urlBuilder = urlBuilder;
         }
 
         public async Task<UserResponse> RegisterAsync(SignUpUserRequest request)
@@ -287,9 +290,8 @@ namespace ScanNow.Application.Features.Auth
         {
             var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-            var frontendBaseUrl = _configuration["App:FrontendBaseUrl"] ?? _configuration["App:ClientUrl"] ?? "http://localhost:5173";
             var verifyPath = _configuration["App:VerifyEmailPath"] ?? "/verify-email";
-            var verifyUrl = $"{frontendBaseUrl.TrimEnd('/')}/{verifyPath.TrimStart('/')}?userId={user.Id}&token={encodedToken}";
+            var verifyUrl = $"{_urlBuilder.BuildPlatformUrl(verifyPath)}?userId={user.Id}&token={encodedToken}";
 
             var body = $"""
             <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
