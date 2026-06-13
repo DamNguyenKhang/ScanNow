@@ -35,6 +35,16 @@ namespace ScanNow.Web.Controllers
             };
         }
 
+        [HttpPost("api/public/tables/{qrCodeToken}/join")]
+        public async Task<ActionResult<ApiResponse<JoinSessionResponse>>> JoinSessionByQrToken(string qrCodeToken)
+        {
+            return new ApiResponse<JoinSessionResponse>
+            {
+                Result = await _tableQrService.JoinSessionByQrTokenAsync(qrCodeToken),
+                Message = "Join session successfully"
+            };
+        }
+
         [HttpPost("api/public/sessions/join")]
         public async Task<ActionResult<ApiResponse<JoinSessionResponse>>> JoinSession([FromBody] JoinSessionRequest request)
         {

@@ -33,6 +33,7 @@ namespace ScanNow.Application.Features.TableQr
         private readonly IValidator<MenuQuery> _menuQueryValidator;
         private readonly IConfiguration _configuration;
         private readonly ITenantUrlBuilder _urlBuilder;
+        private readonly ITenantContext _tenantContext;
 
         public TableQrService(
             ITableQrRepository repository,
@@ -45,7 +46,8 @@ namespace ScanNow.Application.Features.TableQr
             IValidator<JoinSessionRequest> joinSessionValidator,
             IValidator<MenuQuery> menuQueryValidator,
             IConfiguration configuration,
-            ITenantUrlBuilder urlBuilder)
+            ITenantUrlBuilder urlBuilder,
+            ITenantContext tenantContext)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
@@ -58,6 +60,7 @@ namespace ScanNow.Application.Features.TableQr
             _menuQueryValidator = menuQueryValidator;
             _configuration = configuration;
             _urlBuilder = urlBuilder;
+            _tenantContext = tenantContext;
         }
 
         public async Task<ScanNow.Application.Features.RestaurantManagement.DTOs.PagedResult<TableResponse>> GetManageTablesAsync(Guid branchId, TableQuery query)
@@ -265,6 +268,50 @@ namespace ScanNow.Application.Features.TableQr
         {
             await _joinSessionValidator.ValidateAndThrowAsync(request);
             var session = await GetActiveSessionByCodeOrThrowAsync(request.SessionCode.Trim().ToUpperInvariant());
+            return MapJoinSession(session);
+        }
+
+        public async Task<JoinSessionResponse> JoinSessionByQrTokenAsync(string qrCodeToken)
+        {
+            if (string.IsNullOrWhiteSpace(qrCodeToken))
+            {
+                throw new NotFoundException("Table not found");
+            }
+
+            var table = await _repository.GetTableByQrCodeTokenAsync(qrCodeToken.Trim())
+                ?? throw new NotFoundException("Table not found");
+
+            // Enforce active checks
+            if (!table.IsActive || !table.Branch.IsActive || !table.Branch.Restaurant.IsActive)
+            {
+                throw new NotFoundException("Table not found");
+            }
+
+            // Enforce tenant isolation manually
+            var contextSlug = _tenantContext.Slug;
+            if (!string.IsNullOrWhiteSpace(contextSlug))
+            {
+                if (!string.Equals(table.Branch.Restaurant.Slug, contextSlug, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new NotFoundException("Table not found");
+                }
+            }
+
+            // Require table.Status == OCCUPIED
+            if (table.Status != TableStatus.OCCUPIED)
+            {
+                throw new BusinessRuleException("Table is not ready for ordering. Please contact staff.");
+            }
+
+            // Find active session
+            var session = await _repository.GetActiveSessionByTableIdAsync(table.Id)
+                ?? throw new BusinessRuleException("Table is not ready for ordering. Please contact staff.");
+
+            if (!session.IsActive || session.ExpiresAt <= DateTime.UtcNow)
+            {
+                throw new BusinessRuleException("Table is not ready for ordering. Please contact staff.");
+            }
+
             return MapJoinSession(session);
         }
 

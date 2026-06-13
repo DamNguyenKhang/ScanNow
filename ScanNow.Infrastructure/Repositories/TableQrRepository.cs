@@ -71,6 +71,7 @@ namespace ScanNow.Infrastructure.Repositories
             return _context.QrSessions
                 .Include(x => x.Table)
                 .Include(x => x.Branch)
+                .ThenInclude(x => x.Restaurant)
                 .FirstOrDefaultAsync(x => x.TableId == tableId && x.IsActive, ct);
         }
 

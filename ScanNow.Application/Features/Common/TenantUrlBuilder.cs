@@ -3,16 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
 using ScanNow.Application.Abstractions;
+using ScanNow.Domain.Tenancy;
 
 namespace ScanNow.Application.Features.Common
 {
     public class TenantUrlBuilder : ITenantUrlBuilder
     {
         private readonly IConfiguration _configuration;
-        private static readonly HashSet<string> ReservedSlugs = new(StringComparer.OrdinalIgnoreCase)
-        {
-            "www", "api", "admin", "app", "staging", "localhost"
-        };
 
         public TenantUrlBuilder(IConfiguration configuration)
         {
@@ -32,17 +29,9 @@ namespace ScanNow.Application.Features.Common
             return _configuration["App:TenantBaseDomain"]?.Trim().ToLowerInvariant() ?? "";
         }
 
-        private string? NormalizeSlug(string? slug)
-        {
-            if (string.IsNullOrWhiteSpace(slug)) return null;
-            var normalized = slug.Trim().ToLowerInvariant();
-            if (ReservedSlugs.Contains(normalized)) return null;
-            return normalized;
-        }
-
         public string BuildTenantBaseUrl(string? slug)
         {
-            var normalizedSlug = NormalizeSlug(slug);
+            var normalizedSlug = TenantSlugRules.NormalizeTenantSlug(slug);
             var tenantBaseDomain = GetTenantBaseDomain();
 
             if (string.IsNullOrEmpty(normalizedSlug) || string.IsNullOrEmpty(tenantBaseDomain))
