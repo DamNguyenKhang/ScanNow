@@ -101,6 +101,9 @@ namespace ScanNow.Application.Features.Auth
         public async Task<AuthResponse> LoginAsync(AuthRequest request)
         {
             var user = await FindByEmailOrUsernameAsync(request.Identifier) ?? throw new UnauthorizedException("Invalid credentials");
+
+            await VerifyTenantAccessAsync(user);
+
             var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
 
             if (!result.Succeeded)
@@ -113,8 +116,6 @@ namespace ScanNow.Application.Features.Auth
                 await SendEmailVerificationAsync(user);
                 throw new BusinessRuleException("Email hasn't been verified");
             }
-
-            await VerifyTenantAccessAsync(user);
 
             await RecordLoginAsync(user);
             return await CreateAuthResponseAsync(user, includeRefreshToken: true);
@@ -230,13 +231,18 @@ namespace ScanNow.Application.Features.Auth
                 return;
             }
 
+            if (await _userManager.IsInRoleAsync(user, UserRole.ADMIN.ToString()))
+            {
+                return; // Admins can bypass tenant checks to masquerade/access any tenant's dashboard.
+            }
+
             // Global Query Filters automatically scope Restaurants and BranchStaff to _tenantContext.RestaurantId
             bool isOwner = await _dbContext.Restaurants.AnyAsync(r => r.OwnerId == user.Id);
             bool isStaff = await _dbContext.BranchStaff.AnyAsync(bs => bs.UserId == user.Id);
 
             if (!isOwner && !isStaff)
             {
-                throw new UnauthorizedException("You do not have access to this restaurant.");
+                throw new UnauthorizedException("Invalid credentials");
             }
         }
 
