@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ScanNow.Domain.Tenancy;
 using ScanNow.Infrastructure;
 using ScanNow.Infrastructure.Tenancy;
 
@@ -21,11 +22,6 @@ namespace ScanNow.Web.Middlewares
     /// </summary>
     public class TenantResolutionMiddleware
     {
-        private static readonly HashSet<string> ReservedSubdomains = new(StringComparer.OrdinalIgnoreCase)
-        {
-            "www", "api", "admin", "app", "localhost", "staging"
-        };
-
         private const string TenantSlugHeader = "X-Tenant-Slug";
 
         private readonly RequestDelegate _next;
@@ -65,7 +61,7 @@ namespace ScanNow.Web.Middlewares
             // Priority 1: explicit header sent by the frontend.
             var headerSlug = context.Request.Headers[TenantSlugHeader].FirstOrDefault();
             if (!string.IsNullOrWhiteSpace(headerSlug))
-                return headerSlug.Trim();
+                return TenantSlugRules.NormalizeTenantSlug(headerSlug);
 
             // Priority 2: subdomain from the Host header.
             return ExtractSubdomain(context.Request.Host.Host);
@@ -79,7 +75,7 @@ namespace ScanNow.Web.Middlewares
             if (parts.Length < 3) return null;
 
             var subdomain = parts[0];
-            return ReservedSubdomains.Contains(subdomain) ? null : subdomain;
+            return TenantSlugRules.NormalizeTenantSlug(subdomain);
         }
     }
 }

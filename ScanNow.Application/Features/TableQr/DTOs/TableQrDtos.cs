@@ -80,6 +80,7 @@ namespace ScanNow.Application.Features.TableQr.DTOs
         public Guid SessionId { get; set; }
         public Guid TableId { get; set; }
         public Guid BranchId { get; set; }
+        public string SessionCode { get; set; } = string.Empty;
         public string TableNumber { get; set; } = string.Empty;
         public string BranchName { get; set; } = string.Empty;
         public DateTime ExpiresAt { get; set; }

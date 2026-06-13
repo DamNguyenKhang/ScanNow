@@ -20,6 +20,7 @@ namespace ScanNow.Application.Abstractions
         Task<TableResponse> GetMyTableAsync(Guid tableId);
         Task<PublicTableResponse> GetPublicTableAsync(string qrCodeToken);
         Task<JoinSessionResponse> JoinSessionAsync(JoinSessionRequest request);
+        Task<JoinSessionResponse> JoinSessionByQrTokenAsync(string qrCodeToken);
         Task<SessionMenuResponse> GetSessionMenuAsync(string sessionCode, MenuQuery query);
         Task<ScanNow.Application.Features.RestaurantManagement.DTOs.PagedResult<TableResponse>> GetAdminTablesAsync(Guid branchId, TableQuery query);
         Task<TableResponse> GetAdminTableAsync(Guid branchId, Guid tableId);

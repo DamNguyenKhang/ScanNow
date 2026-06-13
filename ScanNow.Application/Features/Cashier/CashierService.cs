@@ -32,6 +32,7 @@ namespace ScanNow.Application.Features.Cashier
         private readonly IValidator<CashierOrderQuery> _queryValidator;
         private readonly IValidator<CashierCheckoutRequest> _checkoutValidator;
         private readonly IConfiguration _configuration;
+        private readonly ITenantUrlBuilder _urlBuilder;
 
         public CashierService(
             IOrderRepository orderRepository,
@@ -43,7 +44,8 @@ namespace ScanNow.Application.Features.Cashier
             IOrderUpdatePublisher publisher,
             IValidator<CashierOrderQuery> queryValidator,
             IValidator<CashierCheckoutRequest> checkoutValidator,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ITenantUrlBuilder urlBuilder)
         {
             _orderRepository = orderRepository;
             _tableRepository = tableRepository;
@@ -55,6 +57,7 @@ namespace ScanNow.Application.Features.Cashier
             _queryValidator = queryValidator;
             _checkoutValidator = checkoutValidator;
             _configuration = configuration;
+            _urlBuilder = urlBuilder;
         }
 
         public async Task<PagedResult<TableOrderHistoryResponse>> GetBranchOrdersAsync(Guid branchId, CashierOrderQuery query)
@@ -316,8 +319,8 @@ namespace ScanNow.Application.Features.Cashier
                 PayOsClientId = config.PayOsClientId,
                 PayOsApiKey = config.PayOsApiKey,
                 PayOsChecksumKey = config.PayOsChecksumKey,
-                ReturnUrl = BuildCashierPaymentRedirectUrl("return", order.Id),
-                CancelUrl = BuildCashierPaymentRedirectUrl("cancel", order.Id)
+                ReturnUrl = BuildCashierPaymentRedirectUrl("return", order),
+                CancelUrl = BuildCashierPaymentRedirectUrl("cancel", order)
             });
 
             if (!linkResult.Success)
@@ -550,13 +553,10 @@ namespace ScanNow.Application.Features.Cashier
 
         private static string BuildPaymentDescription(long orderCode) => $"SN {orderCode}";
 
-        private string BuildCashierPaymentRedirectUrl(string result, Guid orderId)
+        private string BuildCashierPaymentRedirectUrl(string result, OrderEntity order)
         {
-            var baseUrl = NormalizeUrl(_configuration["App:ClientUrl"])
-                ?? NormalizeUrl(_configuration["App:FrontendBaseUrl"])
-                ?? "http://localhost:3000";
-
-            return $"{baseUrl}/payment/{result}?orderId={orderId}&source=cashier";
+            var query = $"orderId={order.Id}&source=cashier";
+            return _urlBuilder.BuildTenantPaymentUrl(order.Branch?.Restaurant?.Slug, result, query);
         }
 
         private static string? NormalizeUrl(string? value)
