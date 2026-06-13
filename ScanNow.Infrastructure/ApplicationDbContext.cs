@@ -35,39 +35,39 @@ namespace ScanNow.Infrastructure
         public DbSet<BranchPaymentConfig> BranchPaymentConfigs => Set<BranchPaymentConfig>();
         public DbSet<PaperVoucher> PaperVouchers => Set<PaperVoucher>();
 
+        // Properties for EF Core query filter parameterization
+        public Guid? CurrentTenantId => _tenantContext?.RestaurantId;
+        public bool IsTenantResolved => _tenantContext?.IsResolved == true;
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
             builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
 
-            // Tenant isolation at the Restaurant level.
-            var tenantId = _tenantContext?.RestaurantId;
-            var isResolved = _tenantContext?.IsResolved == true;
-
             // 1. Filter Restaurant
-            builder.Entity<Restaurant>().HasQueryFilter(e => !isResolved || e.Id == tenantId);
+            builder.Entity<Restaurant>().HasQueryFilter(e => !IsTenantResolved || e.Id == CurrentTenantId);
 
             // 2. Filter Level 1 (Entities with Branch)
-            builder.Entity<Branch>().HasQueryFilter(e => !isResolved || e.RestaurantId == tenantId);
-            builder.Entity<BranchStaff>().HasQueryFilter(e => !isResolved || e.Branch.RestaurantId == tenantId);
-            builder.Entity<Category>().HasQueryFilter(e => !isResolved || e.Branch.RestaurantId == tenantId);
-            builder.Entity<MenuItem>().HasQueryFilter(e => !isResolved || e.Branch.RestaurantId == tenantId);
-            builder.Entity<RestaurantTable>().HasQueryFilter(e => !isResolved || e.Branch.RestaurantId == tenantId);
-            builder.Entity<Order>().HasQueryFilter(e => !isResolved || e.Branch.RestaurantId == tenantId);
-            builder.Entity<QrSession>().HasQueryFilter(e => !isResolved || e.Branch.RestaurantId == tenantId);
-            builder.Entity<ItemRating>().HasQueryFilter(e => !isResolved || e.Branch.RestaurantId == tenantId);
-            builder.Entity<DiscountCode>().HasQueryFilter(e => !isResolved || e.Branch.RestaurantId == tenantId);
-            builder.Entity<BranchPaymentConfig>().HasQueryFilter(e => !isResolved || e.Branch.RestaurantId == tenantId);
-            builder.Entity<PaperVoucher>().HasQueryFilter(e => !isResolved || e.Branch.RestaurantId == tenantId);
+            builder.Entity<Branch>().HasQueryFilter(e => !IsTenantResolved || e.RestaurantId == CurrentTenantId);
+            builder.Entity<BranchStaff>().HasQueryFilter(e => !IsTenantResolved || e.Branch.RestaurantId == CurrentTenantId);
+            builder.Entity<Category>().HasQueryFilter(e => !IsTenantResolved || e.Branch.RestaurantId == CurrentTenantId);
+            builder.Entity<MenuItem>().HasQueryFilter(e => !IsTenantResolved || e.Branch.RestaurantId == CurrentTenantId);
+            builder.Entity<RestaurantTable>().HasQueryFilter(e => !IsTenantResolved || e.Branch.RestaurantId == CurrentTenantId);
+            builder.Entity<Order>().HasQueryFilter(e => !IsTenantResolved || e.Branch.RestaurantId == CurrentTenantId);
+            builder.Entity<QrSession>().HasQueryFilter(e => !IsTenantResolved || e.Branch.RestaurantId == CurrentTenantId);
+            builder.Entity<ItemRating>().HasQueryFilter(e => !IsTenantResolved || e.Branch.RestaurantId == CurrentTenantId);
+            builder.Entity<DiscountCode>().HasQueryFilter(e => !IsTenantResolved || e.Branch.RestaurantId == CurrentTenantId);
+            builder.Entity<BranchPaymentConfig>().HasQueryFilter(e => !IsTenantResolved || e.Branch.RestaurantId == CurrentTenantId);
+            builder.Entity<PaperVoucher>().HasQueryFilter(e => !IsTenantResolved || e.Branch.RestaurantId == CurrentTenantId);
 
             // Level 1 Nullable
-            builder.Entity<Notification>().HasQueryFilter(e => !isResolved || (e.Branch != null && e.Branch.RestaurantId == tenantId));
-            builder.Entity<AuditLog>().HasQueryFilter(e => !isResolved || (e.Branch != null && e.Branch.RestaurantId == tenantId));
+            builder.Entity<Notification>().HasQueryFilter(e => !IsTenantResolved || (e.Branch != null && e.Branch.RestaurantId == CurrentTenantId));
+            builder.Entity<AuditLog>().HasQueryFilter(e => !IsTenantResolved || (e.Branch != null && e.Branch.RestaurantId == CurrentTenantId));
 
             // 3. Filter Level 2 (Entities with Navigation)
-            builder.Entity<OrderItem>().HasQueryFilter(e => !isResolved || e.Order.Branch.RestaurantId == tenantId);
-            builder.Entity<Payment>().HasQueryFilter(e => !isResolved || e.Order.Branch.RestaurantId == tenantId);
-            builder.Entity<MenuItemPriceHistory>().HasQueryFilter(e => !isResolved || e.MenuItem.Branch.RestaurantId == tenantId);
+            builder.Entity<OrderItem>().HasQueryFilter(e => !IsTenantResolved || e.Order.Branch.RestaurantId == CurrentTenantId);
+            builder.Entity<Payment>().HasQueryFilter(e => !IsTenantResolved || e.Order.Branch.RestaurantId == CurrentTenantId);
+            builder.Entity<MenuItemPriceHistory>().HasQueryFilter(e => !IsTenantResolved || e.MenuItem.Branch.RestaurantId == CurrentTenantId);
         }
     }
 }
