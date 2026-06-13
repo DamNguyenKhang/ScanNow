@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ScanNow.Application.DTOs;
 using ScanNow.Domain.Tenancy;
 using ScanNow.Infrastructure;
 using ScanNow.Infrastructure.Tenancy;
@@ -50,6 +51,12 @@ namespace ScanNow.Web.Middlewares
                 {
                     tenantContext.RestaurantId = restaurant.Id;
                     tenantContext.Slug = restaurant.Slug;
+                }
+                else
+                {
+                    context.Response.StatusCode = StatusCodes.Status404NotFound;
+                    await context.Response.WriteAsJsonAsync(ApiResponse.Failure("Tenant not found", StatusCodes.Status404NotFound));
+                    return;
                 }
             }
 
