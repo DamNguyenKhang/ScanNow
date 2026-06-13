@@ -17,6 +17,8 @@ using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
+using ScanNow.Infrastructure;
 
 namespace ScanNow.Application.Features.Auth
 {
@@ -35,6 +37,8 @@ namespace ScanNow.Application.Features.Auth
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
         private readonly ITenantUrlBuilder _urlBuilder;
+        private readonly ITenantContext _tenantContext;
+        private readonly ApplicationDbContext _dbContext;
 
         public AuthService(
             UserManager<ApplicationUser> userManager,
@@ -45,7 +49,9 @@ namespace ScanNow.Application.Features.Auth
             IRefreshTokenRepository refreshTokenRepository,
             IUnitOfWork unitOfWork,
             IConfiguration configuration,
-            ITenantUrlBuilder urlBuilder)
+            ITenantUrlBuilder urlBuilder,
+            ITenantContext tenantContext,
+            ApplicationDbContext dbContext)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -56,6 +62,8 @@ namespace ScanNow.Application.Features.Auth
             _unitOfWork = unitOfWork;
             _configuration = configuration;
             _urlBuilder = urlBuilder;
+            _tenantContext = tenantContext;
+            _dbContext = dbContext;
         }
 
         public async Task<UserResponse> RegisterAsync(SignUpUserRequest request)
@@ -106,6 +114,8 @@ namespace ScanNow.Application.Features.Auth
                 throw new BusinessRuleException("Email hasn't been verified");
             }
 
+            await VerifyTenantAccessAsync(user);
+
             await RecordLoginAsync(user);
             return await CreateAuthResponseAsync(user, includeRefreshToken: true);
         }
@@ -137,6 +147,8 @@ namespace ScanNow.Application.Features.Auth
             {
                 throw new UnauthorizedException("Invalid credentials");
             }
+
+            await VerifyTenantAccessAsync(user);
 
             await RecordLoginAsync(user);
             return await CreateAuthResponseAsync(user, includeRefreshToken: true);
@@ -209,6 +221,23 @@ namespace ScanNow.Application.Features.Auth
             }
 
             await SendEmailVerificationAsync(user);
+        }
+
+        private async Task VerifyTenantAccessAsync(ApplicationUser user)
+        {
+            if (!_tenantContext.IsResolved || _tenantContext.RestaurantId == null)
+            {
+                return;
+            }
+
+            // Global Query Filters automatically scope Restaurants and BranchStaff to _tenantContext.RestaurantId
+            bool isOwner = await _dbContext.Restaurants.AnyAsync(r => r.OwnerId == user.Id);
+            bool isStaff = await _dbContext.BranchStaff.AnyAsync(bs => bs.UserId == user.Id);
+
+            if (!isOwner && !isStaff)
+            {
+                throw new UnauthorizedException("You do not have access to this restaurant.");
+            }
         }
 
         private async Task<ApplicationUser?> FindByEmailOrUsernameAsync(string identifier)
