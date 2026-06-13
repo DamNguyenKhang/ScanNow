@@ -66,6 +66,9 @@ var allowedOrigins = new[]
 // Set App:ProductionDomain in appsettings / env to enable wildcard subdomain CORS.
 var productionDomain = builder.Configuration["App:ProductionDomain"]; // e.g. "scannow.site"
 
+Console.WriteLine($"[CORS] Allowed Explicit Origins at startup: {string.Join(", ", allowedOrigins)}");
+Console.WriteLine($"[CORS] Production Wildcard Domain at startup: '{productionDomain}'");
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowClient", policy =>
@@ -75,7 +78,10 @@ builder.Services.AddCors(options =>
             {
                 // Allow explicit origins (localhost, configured URLs).
                 if (allowedOrigins.Contains(origin))
+                {
+                    Console.WriteLine($"[CORS] ALLOWED Origin: {origin} (Matched explicit origins)");
                     return true;
+                }
 
                 // Allow any subdomain of the configured production domain.
                 // e.g. "https://tenant1.scannow.site" when productionDomain = "scannow.site"
@@ -85,10 +91,14 @@ builder.Services.AddCors(options =>
                     {
                         var host = uri.Host; // "tenant1.scannow.site"
                         if (host.EndsWith($".{productionDomain}", StringComparison.OrdinalIgnoreCase))
+                        {
+                            Console.WriteLine($"[CORS] ALLOWED Origin: {origin} (Matched wildcard domain: {productionDomain})");
                             return true;
+                        }
                     }
                 }
 
+                Console.WriteLine($"[CORS] REJECTED Origin: {origin}");
                 return false;
             })
             .AllowAnyHeader()
