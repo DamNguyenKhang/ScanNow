@@ -12,6 +12,7 @@ RUN dotnet publish ScanNow.Web/ScanNow.Web.csproj -c Release -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
+RUN apt-get update && apt-get install -y libgssapi-krb5-2 && rm -rf /var/lib/apt/lists/*
 EXPOSE 8080
 COPY --from=build /app .
 ENV ASPNETCORE_URLS=http://+:8080
