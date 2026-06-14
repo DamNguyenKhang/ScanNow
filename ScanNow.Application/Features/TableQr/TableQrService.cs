@@ -541,6 +541,7 @@ namespace ScanNow.Application.Features.TableQr
                 SessionId = session.Id,
                 TableId = session.TableId,
                 BranchId = session.BranchId,
+                SessionCode = session.SessionToken,
                 TableNumber = session.Table.TableNumber,
                 BranchName = session.Branch.Name,
                 ExpiresAt = session.ExpiresAt
