@@ -33,9 +33,12 @@ namespace ScanNow.Infrastructure.Repositories
 
         public Task<Order?> GetActiveOrderByIdAsync(Guid orderId, Guid branchId, CancellationToken ct = default)
         {
+            // IgnoreQueryFilters() on the root query also suppresses filters on all includes,
+            // so a plain Include(x => x.Items) is sufficient — no need for AsQueryable().IgnoreQueryFilters()
+            // inside the lambda (that syntax confuses EF's change tracker and causes DbUpdateConcurrencyException).
             return _context.Orders
                 .IgnoreQueryFilters()
-                .Include(x => x.Items.AsQueryable().IgnoreQueryFilters())
+                .Include(x => x.Items)
                 .FirstOrDefaultAsync(
                     x => x.Id == orderId
                          && x.BranchId == branchId
@@ -49,7 +52,7 @@ namespace ScanNow.Infrastructure.Repositories
             var now = DateTime.UtcNow;
             return _context.Orders
                 .IgnoreQueryFilters()
-                .Include(x => x.Items.AsQueryable().IgnoreQueryFilters())
+                .Include(x => x.Items)
                 .FirstOrDefaultAsync(
                     x => x.Id == orderId
                          && x.QrSessions.Any(session =>
