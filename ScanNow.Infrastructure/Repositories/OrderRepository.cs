@@ -129,6 +129,17 @@ namespace ScanNow.Infrastructure.Repositories
             return _context.Orders.AddAsync(order, ct).AsTask();
         }
 
+        public Task AddOrderItemsAsync(IEnumerable<OrderItem> items, CancellationToken ct = default)
+        {
+            // EF Core's ICollection.Add() on a freshly-loaded navigation property does NOT
+            // automatically register the new entity as Added in the change tracker.
+            // (It works when the parent Order was originally created in the same DbContext
+            // lifetime via context.Orders.Add(), but NOT when the Order was re-loaded into a
+            // fresh context via GetActiveOrderByIdAsync.)
+            // Explicit AddRangeAsync is the safe, reliable path for all scenarios.
+            return _context.OrderItems.AddRangeAsync(items, ct);
+        }
+
         public Task AddPaymentAsync(Payment payment, CancellationToken ct = default)
         {
             return _context.Payments.AddAsync(payment, ct).AsTask();

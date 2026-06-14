@@ -14,6 +14,14 @@ namespace ScanNow.Domain.Abstractions.Persistence
         Task<List<Order>> GetOrdersByBranchTableAsync(Guid branchId, Guid tableId, CancellationToken ct = default);
         Task<List<Order>> GetActiveSessionOrdersByBranchTableAsync(Guid branchId, Guid tableId, CancellationToken ct = default);
         Task AddOrderAsync(Order order, CancellationToken ct = default);
+        /// <summary>
+        /// Explicitly registers new OrderItems as Added in the EF change tracker.
+        /// Required when the parent Order was loaded into a fresh DbContext (e.g. a new HTTP
+        /// request): EF Core's navigation-collection fixup does NOT auto-track entities added
+        /// via ICollection.Add() in that scenario, so SaveChangesAsync would generate UPDATE
+        /// (for a GUID that doesn't exist yet) instead of INSERT → DbUpdateConcurrencyException.
+        /// </summary>
+        Task AddOrderItemsAsync(IEnumerable<OrderItem> items, CancellationToken ct = default);
         Task AddPaymentAsync(Payment payment, CancellationToken ct = default);
         Task<int> MarkPaymentSucceededAsync(Guid paymentId, string? transactionId, DateTime paidAt, CancellationToken ct = default);
         Task<int> MarkOrderCompletedAsync(Guid orderId, DateTime completedAt, CancellationToken ct = default);

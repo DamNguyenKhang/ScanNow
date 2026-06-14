@@ -61,8 +61,14 @@ namespace ScanNow.Application.Features.Order
                 foreach (var item in orderItems)
                 {
                     item.OrderId = order.Id;
-                    order.Items.Add(item);
+                    order.Items.Add(item); // keep in-memory collection updated for CalculateOrderStatus
                 }
+
+                // EF Core does NOT auto-track entities added via ICollection.Add() when the
+                // parent Order was loaded into a fresh DbContext (new HTTP request). Without this
+                // call, SaveChangesAsync generates UPDATE for the new GUID (0 rows affected)
+                // → DbUpdateConcurrencyException. Explicit AddRangeAsync fixes that.
+                await _repository.AddOrderItemsAsync(orderItems);
 
                 order.SubTotal += subTotal;
                 order.VatAmount += vatAmount;
