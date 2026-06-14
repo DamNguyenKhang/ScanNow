@@ -6,7 +6,7 @@ namespace ScanNow.Domain.Abstractions.Persistence
     {
         Task<QrSession?> GetActiveSessionByCodeAsync(string sessionCode, CancellationToken ct = default);
         Task<MenuItem?> GetMenuItemByIdAsync(Guid menuItemId, CancellationToken ct = default);
-        Task<Order?> GetActiveOrderByIdAsync(Guid orderId, CancellationToken ct = default);
+        Task<Order?> GetActiveOrderByIdAsync(Guid orderId, Guid branchId, CancellationToken ct = default);
         Task<Order?> GetActiveSessionOrderAsync(string sessionCode, Guid orderId, CancellationToken ct = default);
         Task<Order?> GetOrderWithPaymentsAsync(Guid orderId, CancellationToken ct = default);
         Task<Order?> GetOrderWithDetailsAsync(Guid orderId, CancellationToken ct = default);

@@ -31,12 +31,14 @@ namespace ScanNow.Infrastructure.Repositories
                 .FirstOrDefaultAsync(x => x.Id == menuItemId, ct);
         }
 
-        public Task<Order?> GetActiveOrderByIdAsync(Guid orderId, CancellationToken ct = default)
+        public Task<Order?> GetActiveOrderByIdAsync(Guid orderId, Guid branchId, CancellationToken ct = default)
         {
             return _context.Orders
-                .Include(x => x.Items)
+                .IgnoreQueryFilters()
+                .Include(x => x.Items.AsQueryable().IgnoreQueryFilters())
                 .FirstOrDefaultAsync(
                     x => x.Id == orderId
+                         && x.BranchId == branchId
                          && x.Status != OrderStatus.Cancelled
                          && x.Status != OrderStatus.Completed,
                     ct);
@@ -46,7 +48,8 @@ namespace ScanNow.Infrastructure.Repositories
         {
             var now = DateTime.UtcNow;
             return _context.Orders
-                .Include(x => x.Items)
+                .IgnoreQueryFilters()
+                .Include(x => x.Items.AsQueryable().IgnoreQueryFilters())
                 .FirstOrDefaultAsync(
                     x => x.Id == orderId
                          && x.QrSessions.Any(session =>
@@ -160,6 +163,7 @@ namespace ScanNow.Infrastructure.Repositories
         public Task<int> MarkPendingPaymentsFailedAsync(Guid orderId, DateTime updatedAt, CancellationToken ct = default)
         {
             return _context.Payments
+                .IgnoreQueryFilters()
                 .Where(x => x.OrderId == orderId && x.Status == PaymentStatus.PENDING)
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(x => x.Status, PaymentStatus.FAILED)

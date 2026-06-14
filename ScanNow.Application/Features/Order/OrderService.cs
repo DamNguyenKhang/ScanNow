@@ -53,7 +53,7 @@ namespace ScanNow.Application.Features.Order
 
             if (session.ActiveOrderId.HasValue)
             {
-                order = await _repository.GetActiveOrderByIdAsync(session.ActiveOrderId.Value)
+                order = await _repository.GetActiveOrderByIdAsync(session.ActiveOrderId.Value, session.BranchId)
                     ?? throw new NotFoundException("Active order not found");
 
                 await _repository.MarkPendingPaymentsFailedAsync(order.Id, DateTime.UtcNow);
@@ -169,11 +169,8 @@ namespace ScanNow.Application.Features.Order
 
         public async Task CancelOrderAsync(Guid orderId, Guid branchId)
         {
-            var order = await _repository.GetActiveOrderByIdAsync(orderId)
+            var order = await _repository.GetActiveOrderByIdAsync(orderId, branchId)
                 ?? throw new NotFoundException("Order not found");
-
-            if (order.BranchId != branchId)
-                throw new ForbiddenException("You do not have permission to cancel this order");
 
             if (order.Status == OrderStatus.Cancelled || order.Status == OrderStatus.Completed)
                 throw new BusinessRuleException("Order is already cancelled or completed");
