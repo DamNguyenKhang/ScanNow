@@ -13,6 +13,16 @@ namespace ScanNow.Domain.Abstractions.Persistence
         Task<List<Order>> GetOrdersByBranchAsync(Guid branchId, CancellationToken ct = default);
         Task<List<Order>> GetOrdersByBranchTableAsync(Guid branchId, Guid tableId, CancellationToken ct = default);
         Task<List<Order>> GetActiveSessionOrdersByBranchTableAsync(Guid branchId, Guid tableId, CancellationToken ct = default);
+        /// <summary>
+        /// Returns all non-Cancelled, non-Completed orders that belong to the given active session.
+        /// Used by CheckoutService to aggregate the full session bill across multiple order placements.
+        /// </summary>
+        Task<List<Order>> GetActiveOrdersBySessionCodeAsync(string sessionCode, CancellationToken ct = default);
+        /// <summary>
+        /// Bulk-completes every order in the provided id list at the same timestamp.
+        /// Used after a successful payment that covers multiple orders.
+        /// </summary>
+        Task<int> MarkOrdersCompletedAsync(IEnumerable<Guid> orderIds, DateTime completedAt, CancellationToken ct = default);
         Task AddOrderAsync(Order order, CancellationToken ct = default);
         /// <summary>
         /// Explicitly registers new OrderItems as Added in the EF change tracker.

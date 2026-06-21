@@ -11,18 +11,15 @@ using ScanNow.Tests.Infrastructure;
 namespace ScanNow.Tests;
 
 /// <summary>
-/// End-to-end integration tests for PlaceOrderAsync — the service method that
-/// triggered HTTP 500 when a second person tried to place an order in a session
-/// that already had an active order from someone else.
+/// Integration tests for PlaceOrderAsync — verifies that each call always creates
+/// a new, independent order associated with the active session.
 ///
 /// Scenario summary:
 ///   1. Staff opens table → QrSession is created with no ActiveOrderId.
-///   2. Person A places order → session.ActiveOrderId is set to order-A.
-///   3. Person B places order in the same session → service enters the
-///      `if (session.ActiveOrderId.HasValue)` branch, loads the existing order
-///      with GetActiveOrderByIdAsync, appends items, and saves.
-///      This is the path that previously threw InvalidOperationException (Bug 1)
-///      and then DbUpdateConcurrencyException (Bug 2) after the first partial fix.
+///   2. Person A places order → a new Order is created, session.ActiveOrderId is set to order-A.
+///   3. Person B (or Person A ordering again) places another order in the same session →
+///      a SECOND, fully independent Order is created, and session.ActiveOrderId is updated
+///      to point to the latest order. Both orders remain queryable via the session.
 /// </summary>
 [Collection("DatabaseTests")]
 public class PlaceOrderIntegrationTests : IAsyncLifetime
@@ -42,8 +39,9 @@ public class PlaceOrderIntegrationTests : IAsyncLifetime
         var uow        = new UnitOfWork(_ctx);
         IValidator<PlaceOrderRequest> validator = new PlaceOrderRequestValidator();
         var publisher  = new NoOpOrderPublisher();
+        var cartService = new NoOpCartService();
 
-        _service = new OrderService(repo, uow, validator, publisher);
+        _service = new OrderService(repo, uow, validator, publisher, cartService);
     }
 
     public async Task DisposeAsync()
@@ -58,11 +56,11 @@ public class PlaceOrderIntegrationTests : IAsyncLifetime
 
     /// <summary>
     /// Person A places an order → session.ActiveOrderId is set.
-    /// Person B places another order in the same session → must succeed (201).
-    /// Previously returned 500 due to EF query-filter translation bugs.
+    /// Person B (or same person ordering again) places another order in the same session → must create a NEW, separate order.
+    /// Each call to PlaceOrderAsync always creates an independent order.
     /// </summary>
-    [Fact(DisplayName = "TC-4 PlaceOrderAsync: second person in same session appends items and returns 201")]
-    public async Task PlaceOrderAsync_SecondPersonInSameSession_AppendsItemsSuccessfully()
+    [Fact(DisplayName = "TC-4 PlaceOrderAsync: second order in same session creates a separate new order")]
+    public async Task PlaceOrderAsync_SecondOrderInSameSession_CreatesNewSeparateOrder()
     {
         // ── Step 1: Person A places first order ──────────────────
         var sessionToken = "TST" + Guid.NewGuid().ToString("N")[..3].ToUpper();
@@ -88,7 +86,7 @@ public class PlaceOrderIntegrationTests : IAsyncLifetime
         responseA.OrderId.Should().NotBeEmpty("Person A's order must be created");
         responseA.Items.Should().HaveCount(1, "Person A ordered 1 item");
 
-        // Verify the session now has an ActiveOrderId.
+        // Verify the session now has an ActiveOrderId pointing to order A.
         _ctx.ChangeTracker.Clear();
         var sessionAfterA = await _ctx.QrSessions
             .IgnoreQueryFilters()
@@ -103,18 +101,23 @@ public class PlaceOrderIntegrationTests : IAsyncLifetime
             Items        = [new OrderItemRequest { MenuItemId = TestDataSeeder.MenuItemId, Quantity = 2 }]
         };
 
-        // This is the call that previously threw 500.
         var responseB = await _service.PlaceOrderAsync(sessionToken, requestB);
 
         // ── Assertions ────────────────────────────────────────────
         responseB.Should().NotBeNull();
-        responseB.OrderId.Should().Be(responseA.OrderId,
-            "Person B's order must be appended to the same existing order, not create a new one");
-        responseB.Items.Should().HaveCount(2,
-            "the order must now contain 2 items: Person A's (qty 1) + Person B's (qty 2)");
+        responseB.OrderId.Should().NotBeEmpty("Person B's order must be created");
+        responseB.OrderId.Should().NotBe(responseA.OrderId,
+            "each PlaceOrderAsync call must create a NEW separate order, not merge into the existing one");
+        responseB.Items.Should().HaveCount(1, "Person B's order has only Person B's 2-qty item");
+        responseB.Items[0].Quantity.Should().Be(2, "Person B ordered quantity 2");
 
-        var totalItems = responseB.Items.Sum(i => i.Quantity);
-        totalItems.Should().Be(3, "1 from Person A + 2 from Person B = 3 total");
+        // Session.ActiveOrderId should now point to the latest order (B's).
+        _ctx.ChangeTracker.Clear();
+        var sessionAfterB = await _ctx.QrSessions
+            .IgnoreQueryFilters()
+            .FirstAsync(s => s.SessionToken == sessionToken);
+        sessionAfterB.ActiveOrderId.Should().Be(responseB.OrderId,
+            "after second order, session.ActiveOrderId must be updated to point to Person B's order");
     }
 
     // ─────────────────────────────────────────────────────────────
