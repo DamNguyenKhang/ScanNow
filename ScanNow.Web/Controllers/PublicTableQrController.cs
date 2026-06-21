@@ -35,6 +35,16 @@ namespace ScanNow.Web.Controllers
             };
         }
 
+        [HttpPost("api/public/tables/{qrCodeToken}/join")]
+        public async Task<ActionResult<ApiResponse<JoinSessionResponse>>> JoinSessionByQrToken(string qrCodeToken)
+        {
+            return new ApiResponse<JoinSessionResponse>
+            {
+                Result = await _tableQrService.JoinSessionByQrTokenAsync(qrCodeToken),
+                Message = "Join session successfully"
+            };
+        }
+
         [HttpPost("api/public/sessions/join")]
         public async Task<ActionResult<ApiResponse<JoinSessionResponse>>> JoinSession([FromBody] JoinSessionRequest request)
         {
@@ -56,11 +66,11 @@ namespace ScanNow.Web.Controllers
         }
 
         [HttpPost("api/public/sessions/{sessionCode}/orders")]
-        public async Task<ActionResult<ApiResponse<OrderResponse>>> PlaceOrder(
+        public async Task<ActionResult<ApiResponse<CustomerOrderResponse>>> PlaceOrder(
             string sessionCode,
             [FromBody] PlaceOrderRequest request)
         {
-            return new ApiResponse<OrderResponse>
+            return new ApiResponse<CustomerOrderResponse>
             {
                 Result = await _orderService.PlaceOrderAsync(sessionCode, request),
                 Message = "Order placed successfully"
@@ -86,6 +96,26 @@ namespace ScanNow.Web.Controllers
             {
                 Result = await _checkoutService.GetPaymentStatusAsync(sessionCode),
                 Message = "Payment status retrieved"
+            };
+        }
+
+        [HttpPost("api/public/sessions/{sessionCode}/payment-cancel")]
+        public async Task<ActionResult<ApiResponse<PaymentStatusResponse>>> CancelPendingPayment(string sessionCode)
+        {
+            return new ApiResponse<PaymentStatusResponse>
+            {
+                Result = await _checkoutService.CancelPendingPaymentAsync(sessionCode),
+                Message = "Payment cancelled"
+            };
+        }
+
+        [HttpGet("api/public/sessions/{sessionCode}/orders/{orderId}")]
+        public async Task<ActionResult<ApiResponse<CustomerOrderResponse>>> GetOrderDetail(string sessionCode, Guid orderId)
+        {
+            return new ApiResponse<CustomerOrderResponse>
+            {
+                Result = await _orderService.GetPublicOrderDetailAsync(sessionCode, orderId),
+                Message = "Get order detail successfully"
             };
         }
     }

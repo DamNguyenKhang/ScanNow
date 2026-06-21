@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ScanNow.Application\ScanNow.Application.csproj" />
+    <ProjectReference Include="..\ScanNow.Domain\ScanNow.Domain.csproj" />
     <ProjectReference Include="..\ScanNow.Infrastructure\ScanNow.Infrastructure.csproj" />
   </ItemGroup>
 

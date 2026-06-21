@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using ScanNow.Application.Abstractions;
 using ScanNow.Application.DTOs;
 using ScanNow.Application.Features.MenuManagement.DTOs;
+using ScanNow.Domain.Abstractions.External;
 using ScanNow.Domain.Enums;
 
 namespace ScanNow.Web.Controllers
@@ -11,11 +12,13 @@ namespace ScanNow.Web.Controllers
     [Authorize(Roles = $"{nameof(UserRole.OWNER)},{nameof(UserRole.BRANCH_MANAGER)}")]
     public class OwnerMenuController : ControllerBase
     {
+        private readonly IFileStorageService _fileStorageService;
         private readonly IMenuManagementService _menuManagementService;
 
-        public OwnerMenuController(IMenuManagementService menuManagementService)
+        public OwnerMenuController(IMenuManagementService menuManagementService, IFileStorageService fileStorageService)
         {
             _menuManagementService = menuManagementService;
+            _fileStorageService = fileStorageService;
         }
 
         [HttpGet("api/owner/branches/{branchId:guid}/categories")]
@@ -70,6 +73,17 @@ namespace ScanNow.Web.Controllers
         public async Task<ActionResult<ApiResponse<MenuItemResponse>>> GetMenuItem(Guid id)
         {
             return new ApiResponse<MenuItemResponse> { Result = await _menuManagementService.GetManageMenuItemAsync(id), Message = "Get menu item successfully" };
+        }
+
+        [HttpPost("api/owner/menu-items/images")]
+        [RequestSizeLimit(10 * 1024 * 1024)]
+        public async Task<ActionResult<ApiResponse<IReadOnlyList<string>>>> UploadMenuItemImages([FromForm] List<IFormFile> files)
+        {
+            return new ApiResponse<IReadOnlyList<string>>
+            {
+                Result = await _fileStorageService.UploadImageAsync(files),
+                Message = "Upload menu item images successfully"
+            };
         }
 
         [HttpPost("api/owner/branches/{branchId:guid}/categories/{categoryId:guid}/menu-items")]

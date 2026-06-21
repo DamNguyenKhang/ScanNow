@@ -17,7 +17,7 @@ namespace ScanNow.Domain.Entities
         public decimal ServiceChargeAmount { get; set; }
         public decimal DiscountAmount { get; set; }
         public decimal TotalAmount { get; set; }
-        public OrderStatus Status { get; set; } = OrderStatus.PENDING;
+        public OrderStatus Status { get; set; } = OrderStatus.PendingConfirmation;
         public OrderSource OrderSource { get; set; } = OrderSource.QR;
         public string? StaffNote { get; set; }
         public Guid? ConfirmedById { get; set; }
@@ -27,6 +27,7 @@ namespace ScanNow.Domain.Entities
         public DateTime? ConfirmedAt { get; set; }
         public DateTime? PreparingAt { get; set; }
         public DateTime? ReadyAt { get; set; }
+        public DateTime? ServedAt { get; set; }
         public DateTime? CompletedAt { get; set; }
         public DateTime? CancelledAt { get; set; }
         public DateTime? UpdatedAt { get; set; }

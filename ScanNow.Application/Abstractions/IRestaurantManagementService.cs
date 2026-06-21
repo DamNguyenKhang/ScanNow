@@ -6,8 +6,11 @@ namespace ScanNow.Application.Abstractions
     {
         Task<PagedResult<RestaurantResponse>> GetRestaurantsAsync(RestaurantQuery query);
         Task<RestaurantResponse> GetRestaurantByIdAsync(Guid id);
+        Task<RestaurantResponse> GetRestaurantBySlugAsync(string slug);
         Task<PagedResult<BranchResponse>> GetRestaurantBranchesAsync(Guid restaurantId, BranchQuery query);
+        Task<PagedResult<BranchResponse>> GetRestaurantBranchesBySlugAsync(string restaurantSlug, BranchQuery query);
         Task<BranchResponse> GetRestaurantBranchByIdAsync(Guid restaurantId, Guid branchId);
+        Task<BranchResponse> GetRestaurantBranchBySlugAsync(string restaurantSlug, string branchSlug);
         Task<RestaurantResponse> CreateRestaurantAsync(CreateRestaurantRequest request);
         Task<RestaurantResponse> UpdateRestaurantAsync(Guid id, UpdateRestaurantRequest request);
         Task<RestaurantResponse> BanRestaurantAsync(Guid id);

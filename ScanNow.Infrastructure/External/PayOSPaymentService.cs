@@ -37,9 +37,28 @@ namespace ScanNow.Infrastructure.External
 
         public async Task<PaymentLinkResult> CreatePaymentLinkAsync(CreatePaymentLinkInput input)
         {
-            if (_client == null)
+            var client = _client;
+            var initError = _initError;
+
+            if (!string.IsNullOrWhiteSpace(input.PayOsClientId)
+                && !string.IsNullOrWhiteSpace(input.PayOsApiKey)
+                && !string.IsNullOrWhiteSpace(input.PayOsChecksumKey))
             {
-                return PaymentLinkResult.Error(_initError ?? "PayOS client is not initialized.");
+                try
+                {
+                    client = PayOSClientFactory.Create(input.PayOsClientId, input.PayOsApiKey, input.PayOsChecksumKey);
+                    initError = null;
+                }
+                catch (Exception ex)
+                {
+                    initError = ex.Message;
+                    _logger.LogError(ex, "Could not initialize branch PayOS payment client.");
+                }
+            }
+
+            if (client == null)
+            {
+                return PaymentLinkResult.Error(initError ?? "PayOS client is not initialized.");
             }
 
             try
@@ -49,14 +68,14 @@ namespace ScanNow.Infrastructure.External
                     OrderCode = input.OrderCode,
                     Amount = input.Amount,
                     Description = input.Description,
-                    ReturnUrl = _settings.ReturnUrl,
-                    CancelUrl = _settings.CancelUrl,
+                    ReturnUrl = input.ReturnUrl ?? _settings.ReturnUrl,
+                    CancelUrl = input.CancelUrl ?? _settings.CancelUrl,
                     ExpiredAt = input.ExpiredAtUnixSeconds,
                     BuyerName = input.BuyerName,
                     BuyerPhone = input.BuyerPhone
                 };
 
-                var response = await _client.PaymentRequests.CreateAsync(request);
+                var response = await client.PaymentRequests.CreateAsync(request);
 
                 _logger.LogInformation(
                     "PayOS payment link created for order {OrderCode}: {CheckoutUrl}",
@@ -82,16 +101,35 @@ namespace ScanNow.Infrastructure.External
             }
         }
 
-        public async Task<PaymentStatusResult> GetPaymentStatusAsync(long orderCode)
+        public async Task<PaymentStatusResult> GetPaymentStatusAsync(long orderCode, PayOSCredentialInput? credentials = null)
         {
-            if (_client == null)
+            var client = _client;
+            var initError = _initError;
+
+            if (!string.IsNullOrWhiteSpace(credentials?.ClientId)
+                && !string.IsNullOrWhiteSpace(credentials.ApiKey)
+                && !string.IsNullOrWhiteSpace(credentials.ChecksumKey))
             {
-                return PaymentStatusResult.Error(_initError ?? "PayOS client is not initialized.");
+                try
+                {
+                    client = PayOSClientFactory.Create(credentials.ClientId, credentials.ApiKey, credentials.ChecksumKey);
+                    initError = null;
+                }
+                catch (Exception ex)
+                {
+                    initError = ex.Message;
+                    _logger.LogError(ex, "Could not initialize branch PayOS payment client for status check.");
+                }
+            }
+
+            if (client == null)
+            {
+                return PaymentStatusResult.Error(initError ?? "PayOS client is not initialized.");
             }
 
             try
             {
-                var paymentInfo = await _client.PaymentRequests.GetAsync(orderCode);
+                var paymentInfo = await client.PaymentRequests.GetAsync(orderCode);
 
                 if (paymentInfo == null)
                     return PaymentStatusResult.Error("Could not retrieve payment info from PayOS.");

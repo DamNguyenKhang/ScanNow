@@ -30,5 +30,7 @@ namespace ScanNow.Domain.Entities
         public ICollection<QrSession> QrSessions { get; set; } = new List<QrSession>();
         public ICollection<ItemRating> ItemRatings { get; set; } = new List<ItemRating>();
         public ICollection<DiscountCode> DiscountCodes { get; set; } = new List<DiscountCode>();
+        public BranchPaymentConfig? PaymentConfig { get; set; }
+        public ICollection<PaperVoucher> PaperVouchers { get; set; } = new List<PaperVoucher>();
     }
 }

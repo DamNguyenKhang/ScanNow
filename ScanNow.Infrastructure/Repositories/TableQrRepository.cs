@@ -68,11 +68,11 @@ namespace ScanNow.Infrastructure.Repositories
 
         public Task<QrSession?> GetActiveSessionByTableIdAsync(Guid tableId, CancellationToken ct = default)
         {
-            var now = DateTime.UtcNow;
             return _context.QrSessions
                 .Include(x => x.Table)
                 .Include(x => x.Branch)
-                .FirstOrDefaultAsync(x => x.TableId == tableId && x.IsActive && x.ExpiresAt > now, ct);
+                .ThenInclude(x => x.Restaurant)
+                .FirstOrDefaultAsync(x => x.TableId == tableId && x.IsActive, ct);
         }
 
         public Task<QrSession?> GetSessionByIdAsync(Guid id, CancellationToken ct = default)

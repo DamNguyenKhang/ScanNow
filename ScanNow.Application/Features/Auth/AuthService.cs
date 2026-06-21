@@ -17,6 +17,8 @@ using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
+using ScanNow.Infrastructure;
 
 namespace ScanNow.Application.Features.Auth
 {
@@ -34,6 +36,9 @@ namespace ScanNow.Application.Features.Auth
         private readonly IRefreshTokenRepository _refreshTokenRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
+        private readonly ITenantUrlBuilder _urlBuilder;
+        private readonly ITenantContext _tenantContext;
+        private readonly ApplicationDbContext _dbContext;
 
         public AuthService(
             UserManager<ApplicationUser> userManager,
@@ -43,7 +48,10 @@ namespace ScanNow.Application.Features.Auth
             IEmailService emailService,
             IRefreshTokenRepository refreshTokenRepository,
             IUnitOfWork unitOfWork,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ITenantUrlBuilder urlBuilder,
+            ITenantContext tenantContext,
+            ApplicationDbContext dbContext)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -53,6 +61,9 @@ namespace ScanNow.Application.Features.Auth
             _refreshTokenRepository = refreshTokenRepository;
             _unitOfWork = unitOfWork;
             _configuration = configuration;
+            _urlBuilder = urlBuilder;
+            _tenantContext = tenantContext;
+            _dbContext = dbContext;
         }
 
         public async Task<UserResponse> RegisterAsync(SignUpUserRequest request)
@@ -90,6 +101,9 @@ namespace ScanNow.Application.Features.Auth
         public async Task<AuthResponse> LoginAsync(AuthRequest request)
         {
             var user = await FindByEmailOrUsernameAsync(request.Identifier) ?? throw new UnauthorizedException("Invalid credentials");
+
+            await VerifyTenantAccessAsync(user);
+
             var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
 
             if (!result.Succeeded)
@@ -134,6 +148,8 @@ namespace ScanNow.Application.Features.Auth
             {
                 throw new UnauthorizedException("Invalid credentials");
             }
+
+            await VerifyTenantAccessAsync(user);
 
             await RecordLoginAsync(user);
             return await CreateAuthResponseAsync(user, includeRefreshToken: true);
@@ -206,6 +222,28 @@ namespace ScanNow.Application.Features.Auth
             }
 
             await SendEmailVerificationAsync(user);
+        }
+
+        private async Task VerifyTenantAccessAsync(ApplicationUser user)
+        {
+            if (!_tenantContext.IsResolved || _tenantContext.RestaurantId == null)
+            {
+                return;
+            }
+
+            if (await _userManager.IsInRoleAsync(user, UserRole.ADMIN.ToString()))
+            {
+                return; // Admins can bypass tenant checks to masquerade/access any tenant's dashboard.
+            }
+
+            // Global Query Filters automatically scope Restaurants and BranchStaff to _tenantContext.RestaurantId
+            bool isOwner = await _dbContext.Restaurants.AnyAsync(r => r.OwnerId == user.Id);
+            bool isStaff = await _dbContext.BranchStaff.AnyAsync(bs => bs.UserId == user.Id);
+
+            if (!isOwner && !isStaff)
+            {
+                throw new UnauthorizedException("Invalid credentials");
+            }
         }
 
         private async Task<ApplicationUser?> FindByEmailOrUsernameAsync(string identifier)
@@ -287,9 +325,8 @@ namespace ScanNow.Application.Features.Auth
         {
             var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-            var frontendBaseUrl = _configuration["App:FrontendBaseUrl"] ?? _configuration["App:ClientUrl"] ?? "http://localhost:5173";
             var verifyPath = _configuration["App:VerifyEmailPath"] ?? "/verify-email";
-            var verifyUrl = $"{frontendBaseUrl.TrimEnd('/')}/{verifyPath.TrimStart('/')}?userId={user.Id}&token={encodedToken}";
+            var verifyUrl = $"{_urlBuilder.BuildPlatformUrl(verifyPath)}?userId={user.Id}&token={encodedToken}";
 
             var body = $"""
             <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">

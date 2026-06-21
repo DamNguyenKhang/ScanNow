@@ -410,6 +410,60 @@ namespace ScanNow.Infrastructure.Migrations
                     b.ToTable("Branches", (string)null);
                 });
 
+            modelBuilder.Entity("ScanNow.Domain.Entities.BranchPaymentConfig", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("CashEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("DefaultMethod")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("CASH");
+
+                    b.Property<string>("PayOsApiKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("PayOsChecksumKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("PayOsClientId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("PayOsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId")
+                        .IsUnique();
+
+                    b.ToTable("BranchPaymentConfigs", (string)null);
+                });
+
             modelBuilder.Entity("ScanNow.Domain.Entities.BranchStaff", b =>
                 {
                     b.Property<Guid>("Id")
@@ -880,6 +934,9 @@ namespace ScanNow.Infrastructure.Migrations
                     b.Property<DateTime?>("ReadyAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("ServedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<decimal>("ServiceChargeAmount")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("decimal(10,2)")
@@ -896,9 +953,9 @@ namespace ScanNow.Infrastructure.Migrations
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasDefaultValue("PENDING");
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("PendingConfirmation");
 
                     b.Property<decimal>("SubTotal")
                         .ValueGeneratedOnAdd()
@@ -958,20 +1015,24 @@ namespace ScanNow.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("CookingStartedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<string>("KitchenNote")
-                        .HasColumnType("text");
-
-                    b.Property<string>("KitchenStatus")
-                        .IsRequired()
+                    b.Property<int>("EstimatedCookingMinutes")
                         .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasDefaultValue("PENDING");
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
 
                     b.Property<Guid>("MenuItemId")
                         .HasColumnType("uuid");
@@ -981,22 +1042,30 @@ namespace ScanNow.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("PreparedAt")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Quantity")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasDefaultValue(1);
 
+                    b.Property<DateTime?>("ReadyAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime?>("ServedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("SpecialRequest")
-                        .HasColumnType("text");
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Pending");
 
                     b.Property<decimal>("SubTotal")
                         .HasColumnType("decimal(10,2)");
@@ -1009,15 +1078,97 @@ namespace ScanNow.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("KitchenStatus");
-
                     b.HasIndex("MenuItemId");
 
                     b.HasIndex("OrderId");
 
-                    b.HasIndex("OrderId", "KitchenStatus");
+                    b.HasIndex("Status");
+
+                    b.HasIndex("OrderId", "Status");
 
                     b.ToTable("OrderItems", (string)null);
+                });
+
+            modelBuilder.Entity("ScanNow.Domain.Entities.PaperVoucher", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("DiscountType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<decimal>("DiscountValue")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<decimal?>("MaxDiscountAmount")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("MinOrderAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(10,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<int>("Quantity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UsedCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("ValidFrom")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ValidUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("ValidUntil");
+
+                    b.HasIndex("BranchId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("PaperVouchers", (string)null);
                 });
 
             modelBuilder.Entity("ScanNow.Domain.Entities.PasswordResetToken", b =>
@@ -1472,6 +1623,17 @@ namespace ScanNow.Infrastructure.Migrations
                     b.Navigation("Restaurant");
                 });
 
+            modelBuilder.Entity("ScanNow.Domain.Entities.BranchPaymentConfig", b =>
+                {
+                    b.HasOne("ScanNow.Domain.Entities.Branch", "Branch")
+                        .WithOne("PaymentConfig")
+                        .HasForeignKey("ScanNow.Domain.Entities.BranchPaymentConfig", "BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+                });
+
             modelBuilder.Entity("ScanNow.Domain.Entities.BranchStaff", b =>
                 {
                     b.HasOne("ScanNow.Domain.Entities.ApplicationUser", "AssignedBy")
@@ -1668,6 +1830,17 @@ namespace ScanNow.Infrastructure.Migrations
                     b.Navigation("Order");
                 });
 
+            modelBuilder.Entity("ScanNow.Domain.Entities.PaperVoucher", b =>
+                {
+                    b.HasOne("ScanNow.Domain.Entities.Branch", "Branch")
+                        .WithMany("PaperVouchers")
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+                });
+
             modelBuilder.Entity("ScanNow.Domain.Entities.PasswordResetToken", b =>
                 {
                     b.HasOne("ScanNow.Domain.Entities.ApplicationUser", "User")
@@ -1807,6 +1980,10 @@ namespace ScanNow.Infrastructure.Migrations
                     b.Navigation("Notifications");
 
                     b.Navigation("Orders");
+
+                    b.Navigation("PaperVouchers");
+
+                    b.Navigation("PaymentConfig");
 
                     b.Navigation("QrSessions");
 

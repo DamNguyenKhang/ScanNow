@@ -30,6 +30,14 @@ namespace ScanNow.Infrastructure.Repositories
                 .FirstOrDefaultAsync(x => x.Id == id, ct);
         }
 
+        public Task<Restaurant?> GetRestaurantBySlugAsync(string slug, CancellationToken ct = default)
+        {
+            return _context.Restaurants
+                .Include(x => x.Owner)
+                .Include(x => x.Branches)
+                .FirstOrDefaultAsync(x => x.Slug == slug, ct);
+        }
+
         public Task<Restaurant?> GetRestaurantByOwnerIdAsync(Guid ownerId, CancellationToken ct = default)
         {
             return _context.Restaurants
@@ -73,6 +81,13 @@ namespace ScanNow.Infrastructure.Repositories
             return _context.Branches
                 .Include(x => x.Manager)
                 .FirstOrDefaultAsync(x => x.Id == id, ct);
+        }
+
+        public Task<Branch?> GetBranchBySlugAsync(Guid restaurantId, string slug, CancellationToken ct = default)
+        {
+            return _context.Branches
+                .Include(x => x.Manager)
+                .FirstOrDefaultAsync(x => x.RestaurantId == restaurantId && x.Slug == slug, ct);
         }
 
         public Task<bool> BranchSlugExistsAsync(Guid restaurantId, string slug, Guid? excludeBranchId = null, CancellationToken ct = default)

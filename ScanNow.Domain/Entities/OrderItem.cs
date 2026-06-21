@@ -10,12 +10,15 @@ namespace ScanNow.Domain.Entities
         public decimal UnitPrice { get; set; }
         public int Quantity { get; set; } = 1;
         public decimal SubTotal { get; set; }
-        public string? SpecialRequest { get; set; }
-        public KitchenStatus KitchenStatus { get; set; } = KitchenStatus.PENDING;
-        public string? KitchenNote { get; set; }
-        public DateTime? PreparedAt { get; set; }
-        public DateTime? ServedAt { get; set; }
+        public string? Note { get; set; }
+        public int EstimatedCookingMinutes { get; set; }
+        public OrderItemStatus Status { get; set; } = OrderItemStatus.Pending;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? ConfirmedAt { get; set; }
+        public DateTime? CookingStartedAt { get; set; }
+        public DateTime? ReadyAt { get; set; }
+        public DateTime? ServedAt { get; set; }
+        public DateTime? CancelledAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
 
         public Order Order { get; set; } = null!;

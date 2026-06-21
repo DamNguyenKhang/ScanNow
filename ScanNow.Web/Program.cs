@@ -7,24 +7,42 @@ using ScanNow.Application;
 using ScanNow.Infrastructure;
 using ScanNow.Web;
 using ScanNow.Web.Configurations;
+using ScanNow.Web.Middlewares;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-// Load .env from project directory first, then solution root as fallback
-var envPath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
-if (!File.Exists(envPath))
-    envPath = Path.Combine(AppContext.BaseDirectory, ".env");
-DotNetEnv.Env.Load(envPath);
+// Load .env files from both the web project and solution root.
+// Local developers may run the API from either directory.
+var envPaths = new[]
+{
+    Path.Combine(Directory.GetCurrentDirectory(), "..", ".env"),
+    Path.Combine(AppContext.BaseDirectory, ".env"),
+    Path.Combine(Directory.GetCurrentDirectory(), ".env")
+}
+    .Select(Path.GetFullPath)
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .Where(File.Exists)
+    .ToArray();
+
+if (envPaths.Length > 0)
+{
+    foreach (var path in envPaths)
+    {
+        DotNetEnv.Env.Load(path);
+    }
+}
 builder.Configuration.AddEnvironmentVariables();
 var connectionString = builder.Configuration.GetConnectionString("ScanNowDB")
     ?? throw new InvalidOperationException("Connection string 'ScanNowDB' is not configured.");
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 var allowedOrigins = new[]
 {
@@ -33,6 +51,7 @@ var allowedOrigins = new[]
     builder.Configuration["App:AllowedOrigins"],
     "http://localhost:5173",
     "http://localhost:3000",
+    "https://carwash-magnifier-jogging.ngrok-free.dev",
     "http://localhost:3001"
 }
     .Where(value => !string.IsNullOrWhiteSpace(value))
@@ -41,15 +60,51 @@ var allowedOrigins = new[]
         ? uri.GetLeftPart(UriPartial.Authority)
         : origin.TrimEnd('/'))
     .Distinct(StringComparer.OrdinalIgnoreCase)
-    .ToArray();
+    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+// Domain used for multi-tenant subdomain routing (e.g. tenant1.scannow.site).
+// Set App:ProductionDomain in appsettings / env to enable wildcard subdomain CORS.
+var productionDomain = builder.Configuration["App:ProductionDomain"]; // e.g. "scannow.site"
+
+Console.WriteLine($"[CORS] Allowed Explicit Origins at startup: {string.Join(", ", allowedOrigins)}");
+Console.WriteLine($"[CORS] Production Wildcard Domain at startup: '{productionDomain}'");
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowClient",
-        policy => policy.WithOrigins(allowedOrigins)
-                        .AllowAnyHeader()
-                        .AllowAnyMethod()
-                        .AllowCredentials());
+    options.AddPolicy("AllowClient", policy =>
+    {
+        policy
+            .SetIsOriginAllowed(origin =>
+            {
+                // Allow explicit origins (localhost, configured URLs).
+                if (allowedOrigins.Contains(origin))
+                {
+                    Console.WriteLine($"[CORS] ALLOWED Origin: {origin} (Matched explicit origins)");
+                    return true;
+                }
+
+                // Allow any subdomain of the configured production domain.
+                // e.g. "https://tenant1.scannow.site" when productionDomain = "scannow.site"
+                if (!string.IsNullOrWhiteSpace(productionDomain))
+                {
+                    if (Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                    {
+                        var host = uri.Host; // "tenant1.scannow.site"
+                        if (host.EndsWith($".{productionDomain}", StringComparison.OrdinalIgnoreCase))
+                        {
+                            Console.WriteLine($"[CORS] ALLOWED Origin: {origin} (Matched wildcard domain: {productionDomain})");
+                            return true;
+                        }
+                    }
+                }
+
+                Console.WriteLine($"[CORS] REJECTED Origin: {origin}");
+                return false;
+            })
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
 });
 
 builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
@@ -61,7 +116,8 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
-builder.Services.AddSignalR();
+builder.Services.AddSignalR()
+    .AddJsonProtocol(options => options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services
     .AddDatabase(connectionString)
@@ -123,12 +179,17 @@ app.UseExceptionHandler();
 
 app.UseCors("AllowClient");
 
+// Resolve tenant from subdomain before authentication so that
+// EF Core global query filters are active for the entire request.
+app.UseMiddleware<TenantResolutionMiddleware>();
+
 app.UseAuthentication();
 
 app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<ScanNow.Web.Hubs.CartHub>("/hubs/cart");
+app.MapHub<ScanNow.Web.Hubs.OrderHub>("/hubs/orders");
 
 // Auto migrate on startup
 using (var scope = app.Services.CreateScope())

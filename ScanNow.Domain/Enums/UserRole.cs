@@ -7,5 +7,6 @@ namespace ScanNow.Domain.Enums
         BRANCH_MANAGER,
         STAFF,
         KITCHEN,
+        CASHIER,
     }
 }
