@@ -50,17 +50,25 @@ namespace ScanNow.Infrastructure.Repositories
         public Task<Order?> GetActiveSessionOrderAsync(string sessionCode, Guid orderId, CancellationToken ct = default)
         {
             var now = DateTime.UtcNow;
+
+            // Join through QrSessions to find the active session matching the token,
+            // then verify the requested order belongs to the same session
+            // (same branch + table, created within the session's lifetime).
+            // We intentionally do NOT filter on session.ActiveOrderId == orderId so that
+            // customers can track ALL their orders placed during a session, not just the latest one.
             return _context.Orders
                 .IgnoreQueryFilters()
                 .Include(x => x.Items)
-                .FirstOrDefaultAsync(
-                    x => x.Id == orderId
-                         && x.QrSessions.Any(session =>
-                             session.SessionToken == sessionCode
-                             && session.ActiveOrderId == orderId
-                             && session.IsActive
-                             && session.ExpiresAt > now),
-                    ct);
+                .Where(x => x.Id == orderId
+                            && _context.QrSessions.Any(session =>
+                                session.SessionToken == sessionCode
+                                && session.IsActive
+                                && session.ExpiresAt > now
+                                && session.BranchId == x.BranchId
+                                && session.TableId == x.TableId
+                                && x.CreatedAt >= session.CreatedAt
+                                && x.CreatedAt <= session.ExpiresAt))
+                .FirstOrDefaultAsync(ct);
         }
 
         public Task<Order?> GetOrderWithPaymentsAsync(Guid orderId, CancellationToken ct = default)
@@ -111,17 +119,55 @@ namespace ScanNow.Infrastructure.Repositories
 
         public Task<List<Order>> GetActiveSessionOrdersByBranchTableAsync(Guid branchId, Guid tableId, CancellationToken ct = default)
         {
+            var now = DateTime.UtcNow;
             return _context.Orders
                 .AsNoTracking()
                 .Include(x => x.Table)
                 .Include(x => x.Items)
                 .Include(x => x.Payments)
-                .Include(x => x.QrSessions)
                 .Where(x => x.BranchId == branchId
                             && x.TableId == tableId
-                            && x.QrSessions.Any(session => session.IsActive && session.TableId == tableId))
+                            && _context.QrSessions.Any(session => 
+                                session.IsActive 
+                                && session.TableId == tableId
+                                && session.ExpiresAt > now
+                                && x.CreatedAt >= session.CreatedAt
+                                && x.CreatedAt <= session.ExpiresAt))
                 .OrderByDescending(x => x.CreatedAt)
                 .ToListAsync(ct);
+        }
+
+        public Task<List<Order>> GetActiveOrdersBySessionCodeAsync(string sessionCode, CancellationToken ct = default)
+        {
+            var now = DateTime.UtcNow;
+            return _context.Orders
+                .AsNoTracking()
+                .Include(x => x.Items)
+                .Include(x => x.Payments)
+                .Where(x =>
+                    _context.QrSessions.Any(session =>
+                        session.SessionToken == sessionCode
+                        && session.IsActive
+                        && session.ExpiresAt > now
+                        && session.BranchId == x.BranchId
+                        && session.TableId == x.TableId
+                        && x.CreatedAt >= session.CreatedAt
+                        && x.CreatedAt <= session.ExpiresAt)
+                    && x.Status != OrderStatus.Cancelled
+                    && x.Status != OrderStatus.Completed)
+                .OrderBy(x => x.CreatedAt)
+                .ToListAsync(ct);
+        }
+
+        public Task<int> MarkOrdersCompletedAsync(IEnumerable<Guid> orderIds, DateTime completedAt, CancellationToken ct = default)
+        {
+            var idList = orderIds.ToList();
+            return _context.Orders
+                .Where(x => idList.Contains(x.Id))
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(x => x.Status, OrderStatus.Completed)
+                    .SetProperty(x => x.CompletedAt, completedAt)
+                    .SetProperty(x => x.UpdatedAt, completedAt), ct);
         }
 
         public Task AddOrderAsync(Order order, CancellationToken ct = default)

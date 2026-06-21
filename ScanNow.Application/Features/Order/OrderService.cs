@@ -2,7 +2,6 @@ using FluentValidation;
 using ScanNow.Application.Abstractions;
 using ScanNow.Application.Exceptions;
 using ScanNow.Application.Features.Order.DTOs;
-using ScanNow.Application.Features.Waiter;
 using ScanNow.Application.Mappers;
 using ScanNow.Domain.Abstractions.Persistence;
 using ScanNow.Domain.Entities;
@@ -17,17 +16,20 @@ namespace ScanNow.Application.Features.Order
         private readonly IUnitOfWork _unitOfWork;
         private readonly IValidator<PlaceOrderRequest> _placeOrderValidator;
         private readonly IOrderUpdatePublisher _publisher;
+        private readonly ICartService _cartService;
 
         public OrderService(
             IOrderRepository repository,
             IUnitOfWork unitOfWork,
             IValidator<PlaceOrderRequest> placeOrderValidator,
-            IOrderUpdatePublisher publisher)
+            IOrderUpdatePublisher publisher,
+            ICartService cartService)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
             _placeOrderValidator = placeOrderValidator;
             _publisher = publisher;
+            _cartService = cartService;
         }
 
         public async Task<CustomerOrderResponse> PlaceOrderAsync(string sessionCode, PlaceOrderRequest request)
@@ -49,70 +51,43 @@ namespace ScanNow.Application.Features.Order
             var serviceChargeAmount = Math.Round(subTotal * serviceChargePercent / 100, 2);
             var totalAmount = subTotal + vatAmount + serviceChargeAmount;
 
-            Domain.Entities.Order order;
-
-            if (session.ActiveOrderId.HasValue)
+            var orderNumber = GenerateOrderNumber();
+            var order = new Domain.Entities.Order
             {
-                order = await _repository.GetActiveOrderByIdAsync(session.ActiveOrderId.Value, session.BranchId)
-                    ?? throw new NotFoundException("Active order not found");
+                Id = Guid.NewGuid(),
+                BranchId = session.BranchId,
+                TableId = session.TableId,
+                OrderNumber = orderNumber,
+                CustomerName = request.CustomerName?.Trim(),
+                CustomerPhone = request.CustomerPhone?.Trim(),
+                CustomerNote = request.CustomerNote?.Trim(),
+                SubTotal = subTotal,
+                VatPercent = vatPercent,
+                VatAmount = vatAmount,
+                ServiceChargePercent = serviceChargePercent,
+                ServiceChargeAmount = serviceChargeAmount,
+                DiscountAmount = 0,
+                TotalAmount = totalAmount,
+                Status = OrderStatus.PendingConfirmation,
+                OrderSource = OrderSource.QR,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Items = orderItems
+            };
 
-                await _repository.MarkPendingPaymentsFailedAsync(order.Id, DateTime.UtcNow);
+            await _repository.AddOrderAsync(order);
 
-                foreach (var item in orderItems)
-                {
-                    item.OrderId = order.Id;
-                    order.Items.Add(item); // keep in-memory collection updated for CalculateOrderStatus
-                }
-
-                // EF Core does NOT auto-track entities added via ICollection.Add() when the
-                // parent Order was loaded into a fresh DbContext (new HTTP request). Without this
-                // call, SaveChangesAsync generates UPDATE for the new GUID (0 rows affected)
-                // → DbUpdateConcurrencyException. Explicit AddRangeAsync fixes that.
-                await _repository.AddOrderItemsAsync(orderItems);
-
-                order.SubTotal += subTotal;
-                order.VatAmount += vatAmount;
-                order.ServiceChargeAmount += serviceChargeAmount;
-                order.TotalAmount += totalAmount;
-                order.Status = WaiterService.CalculateOrderStatus(order.Items.ToList());
-                order.UpdatedAt = DateTime.UtcNow;
-            }
-            else
-            {
-                var orderNumber = GenerateOrderNumber();
-                order = new Domain.Entities.Order
-                {
-                    Id = Guid.NewGuid(),
-                    BranchId = session.BranchId,
-                    TableId = session.TableId,
-                    OrderNumber = orderNumber,
-                    CustomerName = request.CustomerName?.Trim(),
-                    CustomerPhone = request.CustomerPhone?.Trim(),
-                    CustomerNote = request.CustomerNote?.Trim(),
-                    SubTotal = subTotal,
-                    VatPercent = vatPercent,
-                    VatAmount = vatAmount,
-                    ServiceChargePercent = serviceChargePercent,
-                    ServiceChargeAmount = serviceChargeAmount,
-                    DiscountAmount = 0,
-                    TotalAmount = totalAmount,
-                    Status = OrderStatus.PendingConfirmation,
-                    OrderSource = OrderSource.QR,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
-                    Items = orderItems
-                };
-
-                await _repository.AddOrderAsync(order);
-
-                session.ActiveOrderId = order.Id;
-                session.UpdatedAt = DateTime.UtcNow;
-            }
+            // Always point the session at the latest order so checkout & order-tracking
+            // still work correctly. The checkout service will aggregate ALL active orders
+            // for the full session bill (not just this one).
+            session.ActiveOrderId = order.Id;
+            session.UpdatedAt = DateTime.UtcNow;
 
             await _unitOfWork.SaveChangesAsync();
 
             var response = CustomerOrderMapper.Map(order);
             await _publisher.PublishOrderUpdatedAsync(response);
+            await _cartService.ClearCartAsync(normalizedCode);
             return response;
         }
 
