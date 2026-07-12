@@ -11,8 +11,10 @@ namespace ScanNow.Domain.Abstractions.Persistence
         Task<Order?> GetOrderWithPaymentsAsync(Guid orderId, CancellationToken ct = default);
         Task<Order?> GetOrderWithDetailsAsync(Guid orderId, CancellationToken ct = default);
         Task<List<Order>> GetOrdersByBranchAsync(Guid branchId, CancellationToken ct = default);
+        Task<List<QrSession>> GetSessionsByBranchAsync(Guid branchId, CancellationToken ct = default);
         Task<List<Order>> GetOrdersByBranchTableAsync(Guid branchId, Guid tableId, CancellationToken ct = default);
         Task<List<Order>> GetActiveSessionOrdersByBranchTableAsync(Guid branchId, Guid tableId, CancellationToken ct = default);
+        Task<List<Order>> GetCashierBillOrdersByOrderIdAsync(Guid branchId, Guid orderId, bool includeClosedOrders = false, CancellationToken ct = default);
         /// <summary>
         /// Returns all non-Cancelled, non-Completed orders that belong to the given active session.
         /// Used by CheckoutService to aggregate the full session bill across multiple order placements.

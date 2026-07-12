@@ -109,6 +109,9 @@ namespace ScanNow.Application.Features.Order.DTOs
     public class TableOrderHistoryResponse
     {
         public Guid OrderId { get; set; }
+        public Guid PrimaryOrderId { get; set; }
+        public bool IsGroupedBill { get; set; }
+        public List<Guid> OrderIds { get; set; } = new();
         public string OrderNumber { get; set; } = string.Empty;
         public Guid BranchId { get; set; }
         public Guid? TableId { get; set; }
@@ -131,6 +134,7 @@ namespace ScanNow.Application.Features.Order.DTOs
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public List<CustomerOrderItemResponse> Items { get; set; } = new();
+        public List<TableOrderHistoryResponse> Orders { get; set; } = new();
     }
 
     public class OrderInvoiceListResponse

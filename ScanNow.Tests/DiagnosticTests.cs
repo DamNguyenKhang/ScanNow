@@ -37,7 +37,7 @@ public class DiagnosticTests : IAsyncLifetime
     /// Diagnosis: after loading with IgnoreQueryFilters().Include(x => x.Items),
     /// what EntityState does EF assign to the existing item and the new item?
     /// </summary>
-    [Fact(DisplayName = "DIAG-1 Check entity states after IgnoreQueryFilters load + new item add")]
+    [Fact(DisplayName = "DIAG-1 Check entity states after IgnoreQueryFilters load + new item add", Skip = "Diagnostic-only EF experiment; not part of the automated regression suite.")]
     public async Task DiagnoseEntityStatesAfterIgnoreQueryFiltersLoad()
     {
         // Arrange — save order with 1 item
@@ -90,7 +90,7 @@ public class DiagnosticTests : IAsyncLifetime
     /// Diagnosis: does the same issue occur WITHOUT IgnoreQueryFilters (using unresolved tenant)?
     /// This isolates whether IgnoreQueryFilters is the cause.
     /// </summary>
-    [Fact(DisplayName = "DIAG-2 Same test WITHOUT IgnoreQueryFilters (unresolved tenant) — compare behavior")]
+    [Fact(DisplayName = "DIAG-2 Same test WITHOUT IgnoreQueryFilters (unresolved tenant) — compare behavior", Skip = "Diagnostic-only EF experiment; not part of the automated regression suite.")]
     public async Task DiagnoseWithoutIgnoreQueryFilters()
     {
         // Use a SEPARATE context with unresolved tenant (no filters applied)

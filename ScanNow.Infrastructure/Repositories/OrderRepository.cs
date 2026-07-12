@@ -137,6 +137,83 @@ namespace ScanNow.Infrastructure.Repositories
                 .ToListAsync(ct);
         }
 
+        public Task<List<QrSession>> GetSessionsByBranchAsync(Guid branchId, CancellationToken ct = default)
+        {
+            return _context.QrSessions
+                .AsNoTracking()
+                .Where(x => x.BranchId == branchId)
+                .OrderBy(x => x.CreatedAt)
+                .ToListAsync(ct);
+        }
+
+        public async Task<List<Order>> GetCashierBillOrdersByOrderIdAsync(Guid branchId, Guid orderId, bool includeClosedOrders = false, CancellationToken ct = default)
+        {
+            var targetOrder = await BuildOrderDetailsQuery()
+                .FirstOrDefaultAsync(x => x.Id == orderId, ct);
+
+            if (targetOrder is null || targetOrder.BranchId != branchId)
+            {
+                return new List<Order>();
+            }
+
+            if (!includeClosedOrders
+                && (targetOrder.Status == OrderStatus.Cancelled || targetOrder.Status == OrderStatus.Completed))
+            {
+                return new List<Order> { targetOrder };
+            }
+
+            if (!targetOrder.TableId.HasValue)
+            {
+                return new List<Order> { targetOrder };
+            }
+
+            var sessionQuery = _context.QrSessions
+                .AsNoTracking()
+                .Where(x => x.BranchId == branchId
+                            && x.TableId == targetOrder.TableId.Value
+                            && targetOrder.CreatedAt >= x.CreatedAt
+                            && targetOrder.CreatedAt <= x.ExpiresAt);
+
+            if (!includeClosedOrders)
+            {
+                var now = DateTime.UtcNow;
+                sessionQuery = sessionQuery.Where(x => x.IsActive && x.ExpiresAt > now);
+            }
+
+            var session = await sessionQuery
+                .OrderByDescending(x => x.CreatedAt)
+                .FirstOrDefaultAsync(ct);
+
+            if (session is null)
+            {
+                return new List<Order> { targetOrder };
+            }
+
+            var query = BuildOrderDetailsQuery()
+                .Where(x => x.BranchId == branchId
+                            && x.TableId == targetOrder.TableId.Value
+                            && x.CreatedAt >= session.CreatedAt
+                            && x.CreatedAt <= session.ExpiresAt);
+
+            if (includeClosedOrders)
+            {
+                query = query.Where(x => x.Status != OrderStatus.Cancelled);
+            }
+            else
+            {
+                query = query.Where(x => x.Status != OrderStatus.Cancelled
+                                         && x.Status != OrderStatus.Completed);
+            }
+
+            var billOrders = await query
+                .OrderBy(x => x.CreatedAt)
+                .ToListAsync(ct);
+
+            return billOrders.Count > 0
+                ? billOrders
+                : new List<Order> { targetOrder };
+        }
+
         public Task<List<Order>> GetActiveOrdersBySessionCodeAsync(string sessionCode, CancellationToken ct = default)
         {
             var now = DateTime.UtcNow;
@@ -228,6 +305,17 @@ namespace ScanNow.Infrastructure.Repositories
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(x => x.Status, PaymentStatus.FAILED)
                     .SetProperty(x => x.UpdatedAt, updatedAt), ct);
+        }
+
+        private IQueryable<Order> BuildOrderDetailsQuery()
+        {
+            return _context.Orders
+                .Include(x => x.Branch)
+                .ThenInclude(x => x.Restaurant)
+                .Include(x => x.Table)
+                .Include(x => x.Items)
+                .Include(x => x.Payments)
+                .Include(x => x.QrSessions);
         }
     }
 }

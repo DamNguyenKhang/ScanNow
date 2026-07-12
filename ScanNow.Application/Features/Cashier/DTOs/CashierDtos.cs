@@ -38,5 +38,26 @@ namespace ScanNow.Application.Features.Cashier.DTOs
         public string? Description { get; set; }
         public DateTime? PaymentExpiresAt { get; set; }
         public TableOrderHistoryResponse Order { get; set; } = null!;
+        public CashierBillResponse Bill { get; set; } = null!;
+    }
+
+    public class CashierBillResponse
+    {
+        public Guid PrimaryOrderId { get; set; }
+        public string? SessionCode { get; set; }
+        public bool IsGroupedBill { get; set; }
+        public List<Guid> OrderIds { get; set; } = new();
+        public decimal SubTotal { get; set; }
+        public decimal VatAmount { get; set; }
+        public decimal ServiceChargeAmount { get; set; }
+        public decimal DiscountAmount { get; set; }
+        public decimal TotalAmount { get; set; }
+        public Guid? PaymentId { get; set; }
+        public PaymentMethod? PaymentMethod { get; set; }
+        public PaymentStatus? PaymentStatus { get; set; }
+        public decimal? AmountReceived { get; set; }
+        public decimal? ChangeAmount { get; set; }
+        public DateTime? PaidAt { get; set; }
+        public List<TableOrderHistoryResponse> Orders { get; set; } = new();
     }
 }

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using ScanNow.Application.Abstractions;
 using ScanNow.Application.Exceptions;
 using ScanNow.Application.Features.Cashier.DTOs;
+using ScanNow.Application.Features.Checkout.DTOs;
 using ScanNow.Application.Features.Order.DTOs;
 using ScanNow.Application.Features.RestaurantManagement.DTOs;
 using ScanNow.Application.Mappers;
@@ -66,132 +67,218 @@ namespace ScanNow.Application.Features.Cashier
             await EnsureCanAccessBranchAsync(branchId);
 
             var orders = await _orderRepository.GetOrdersByBranchAsync(branchId);
-            var filteredOrders = ApplyFilters(orders, query).ToList();
-            var sortedOrders = ApplySort(filteredOrders, query).ToList();
+            var sessions = await _orderRepository.GetSessionsByBranchAsync(branchId);
+            var bills = BuildCashierBillContexts(orders, sessions);
+            var filteredBills = ApplyFilters(bills, query).ToList();
+            var sortedBills = ApplySort(filteredBills, query).ToList();
             var pageNumber = query.PageNumber <= 0 ? 1 : query.PageNumber;
             var pageSize = query.PageSize <= 0 ? 10 : Math.Min(query.PageSize, 100);
 
             return new PagedResult<TableOrderHistoryResponse>
             {
-                Items = sortedOrders
+                Items = sortedBills
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
-                    .Select(MapOrder)
+                    .Select(bill => BuildOrderHistoryResponse(bill, hideOrderNumber: true))
                     .ToList(),
                 PageNumber = pageNumber,
                 PageSize = pageSize,
-                TotalItems = filteredOrders.Count
+                TotalItems = filteredBills.Count
             };
         }
 
         public async Task<TableOrderHistoryResponse> GetBranchOrderAsync(Guid branchId, Guid orderId)
         {
-            await EnsureCanAccessBranchAsync(branchId);
-            var order = await _orderRepository.GetOrderWithDetailsAsync(orderId)
-                ?? throw new NotFoundException("Order not found");
+            var bill = await ResolveBillContextAsync(branchId, orderId, includeClosedOrders: true);
+            return BuildOrderHistoryResponse(bill);
+        }
 
-            if (order.BranchId != branchId)
-            {
-                throw new ForbiddenException();
-            }
-
-            return MapOrder(order);
+        public async Task<CashierBillResponse> GetBillAsync(Guid branchId, Guid orderId)
+        {
+            var bill = await ResolveBillContextAsync(branchId, orderId);
+            return BuildBillResponse(bill);
         }
 
         public async Task<CashierPaymentResponse> CheckoutAsync(Guid branchId, Guid orderId, CashierCheckoutRequest request)
         {
             await _checkoutValidator.ValidateAndThrowAsync(request);
-            await EnsureCanAccessBranchAsync(branchId);
 
-            var order = await _orderRepository.GetOrderWithDetailsAsync(orderId)
-                ?? throw new NotFoundException("Order not found");
+            var bill = await ResolveBillContextAsync(branchId, orderId);
 
-            if (order.BranchId != branchId)
-            {
-                throw new ForbiddenException();
-            }
-
-            if (order.Status == OrderStatus.Cancelled)
+            if (bill.Orders.Any(x => x.Status == OrderStatus.Cancelled))
             {
                 throw new BusinessRuleException("Cancelled order cannot be paid.");
             }
 
-            var successfulPayment = GetLatestPayment(order, PaymentStatus.SUCCESS);
+            if (bill.Orders.Any(x => x.Status == OrderStatus.Completed))
+            {
+                throw new BusinessRuleException("Completed order cannot be paid.");
+            }
+
+            var successfulPayment = GetLatestPayment(bill.Orders, PaymentStatus.SUCCESS);
             if (successfulPayment is not null)
             {
-                throw new ConflictException("This order has already been paid.");
+                throw new ConflictException("One or more orders in this bill have already been paid.");
             }
 
-            var pendingPayOsPayment = order.Payments
-                .Where(x => x.Method == PaymentMethod.PAYOS && x.Status == PaymentStatus.PENDING)
-                .OrderByDescending(x => x.CreatedAt)
-                .FirstOrDefault();
-
-            if (pendingPayOsPayment is not null)
+            var pendingPayOsPayment = GetLatestPayment(bill.Orders, PaymentStatus.PENDING, PaymentMethod.PAYOS);
+            if (pendingPayOsPayment is not null && request.PaymentMethod == PaymentMethod.CASH)
             {
-                if (request.PaymentMethod == PaymentMethod.CASH)
-                {
-                    throw new BusinessRuleException("This order has a pending PayOS QR payment. Complete or cancel the QR payment before accepting cash.");
-                }
-
-                return BuildPaymentResponse(order, pendingPayOsPayment);
+                throw new BusinessRuleException("This bill has a pending PayOS QR payment. Complete or cancel the QR payment before accepting cash.");
             }
 
-            await ApplyVoucherAsync(order, request.VoucherCode);
+            await ApplyVoucherAsync(bill, request.VoucherCode);
 
             return request.PaymentMethod == PaymentMethod.CASH
-                ? await HandleCashAsync(order, request.AmountReceived)
-                : await HandlePayOsAsync(order);
+                ? await HandleCashAsync(bill, request.AmountReceived)
+                : await HandlePayOsAsync(bill);
+        }
+
+        public async Task<PaymentStatusResponse> GetBillPaymentStatusAsync(Guid branchId, Guid orderId)
+        {
+            var bill = await ResolveBillContextAsync(branchId, orderId, includeClosedOrders: true);
+            var primaryOrder = bill.PrimaryOrder;
+            var payment = GetLatestPayment(bill.Orders, method: PaymentMethod.PAYOS);
+
+            if (payment is null)
+            {
+                return new PaymentStatusResponse
+                {
+                    OrderId = primaryOrder.Id,
+                    PaymentStatus = "NO_PAYMENT",
+                    OrderStatus = primaryOrder.Status.ToString()
+                };
+            }
+
+            if (payment.Status == PaymentStatus.SUCCESS)
+            {
+                return new PaymentStatusResponse
+                {
+                    OrderId = primaryOrder.Id,
+                    PaymentStatus = PaymentStatus.SUCCESS.ToString(),
+                    OrderStatus = primaryOrder.Status.ToString()
+                };
+            }
+
+            if (payment.Status == PaymentStatus.PENDING && !string.IsNullOrWhiteSpace(payment.GatewayOrderId))
+            {
+                if (long.TryParse(payment.GatewayOrderId, out var orderCode))
+                {
+                    var config = await _branchSettingsRepository.GetPaymentConfigAsync(primaryOrder.BranchId);
+                    var gatewayResult = await _paymentService.GetPaymentStatusAsync(
+                        orderCode,
+                        new PayOSCredentialInput
+                        {
+                            ClientId = config?.PayOsClientId,
+                            ApiKey = config?.PayOsApiKey,
+                            ChecksumKey = config?.PayOsChecksumKey
+                        });
+
+                    if (gatewayResult.IsPaid)
+                    {
+                        var now = DateTime.UtcNow;
+                        var snapshot = DeserializePayOsSnapshot(payment.GatewayResponseData);
+                        var coveredOrderIds = GetCoveredOrderIds(snapshot, bill).ToList();
+
+                        await _orderRepository.MarkPaymentSucceededAsync(payment.Id, gatewayResult.TransactionId, now);
+                        await _orderRepository.MarkOrdersCompletedAsync(coveredOrderIds, now);
+                        await _unitOfWork.SaveChangesAsync();
+
+                        payment.Status = PaymentStatus.SUCCESS;
+                        payment.TransactionId = gatewayResult.TransactionId;
+                        payment.PaidAt = now;
+                        payment.UpdatedAt = now;
+
+                        var affectedOrders = bill.Orders.Where(x => coveredOrderIds.Contains(x.Id)).ToList();
+                        foreach (var order in affectedOrders)
+                        {
+                            order.Status = OrderStatus.Completed;
+                            order.CompletedAt = now;
+                            order.UpdatedAt = now;
+                        }
+
+                        await PublishOrderUpdatesAsync(affectedOrders);
+
+                        return new PaymentStatusResponse
+                        {
+                            OrderId = primaryOrder.Id,
+                            PaymentStatus = PaymentStatus.SUCCESS.ToString(),
+                            OrderStatus = OrderStatus.Completed.ToString()
+                        };
+                    }
+                }
+            }
+
+            return new PaymentStatusResponse
+            {
+                OrderId = primaryOrder.Id,
+                PaymentStatus = payment.Status.ToString(),
+                OrderStatus = primaryOrder.Status.ToString()
+            };
+        }
+
+        public async Task<CashierBillResponse> CancelBillPendingPaymentAsync(Guid branchId, Guid orderId)
+        {
+            var bill = await ResolveBillContextAsync(branchId, orderId);
+            var pendingPayment = GetLatestPayment(bill.Orders, PaymentStatus.PENDING);
+
+            if (pendingPayment is null)
+            {
+                throw new BusinessRuleException("This bill does not have a pending payment.");
+            }
+
+            var now = DateTime.UtcNow;
+            await FailPendingPaymentsAsync(bill, now);
+            await _unitOfWork.SaveChangesAsync();
+
+            return BuildBillResponse(bill);
         }
 
         public async Task<TableOrderHistoryResponse> CancelPendingPaymentAsync(Guid branchId, Guid orderId)
         {
-            await EnsureCanAccessBranchAsync(branchId);
-
-            var order = await _orderRepository.GetOrderWithDetailsAsync(orderId)
-                ?? throw new NotFoundException("Order not found");
-
-            if (order.BranchId != branchId)
-            {
-                throw new ForbiddenException();
-            }
-
-            var pendingPayment = order.Payments
-                .Where(x => x.Status == PaymentStatus.PENDING)
-                .OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
-                .FirstOrDefault();
-
-            if (pendingPayment is null)
-            {
-                throw new BusinessRuleException("This order does not have a pending payment.");
-            }
-
-            var now = DateTime.UtcNow;
-            await _orderRepository.MarkPendingPaymentsFailedAsync(order.Id, now);
-            await _unitOfWork.SaveChangesAsync();
-
-            foreach (var payment in order.Payments.Where(x => x.Status == PaymentStatus.PENDING))
-            {
-                payment.Status = PaymentStatus.FAILED;
-                payment.UpdatedAt = now;
-            }
-
-            return MapOrder(order);
+            var bill = await CancelBillPendingPaymentAsync(branchId, orderId);
+            return bill.Orders.FirstOrDefault(x => x.OrderId == orderId) ?? bill.Orders.First();
         }
 
-        private async Task ApplyVoucherAsync(OrderEntity order, string? voucherCode)
+        private async Task<CashierBillContext> ResolveBillContextAsync(Guid branchId, Guid orderId, bool includeClosedOrders = false)
+        {
+            await EnsureCanAccessBranchAsync(branchId);
+
+            var orders = await _orderRepository.GetCashierBillOrdersByOrderIdAsync(branchId, orderId, includeClosedOrders);
+            if (orders.Count == 0)
+            {
+                var order = await _orderRepository.GetOrderWithDetailsAsync(orderId)
+                    ?? throw new NotFoundException("Order not found");
+
+                if (order.BranchId != branchId)
+                {
+                    throw new ForbiddenException();
+                }
+
+                orders.Add(order);
+            }
+
+            var sessions = await _orderRepository.GetSessionsByBranchAsync(branchId);
+            var session = orders
+                .Select(order => FindSessionForOrder(order, sessions))
+                .FirstOrDefault(x => x is not null);
+
+            return new CashierBillContext(orders, session?.SessionToken);
+        }
+
+        private async Task ApplyVoucherAsync(CashierBillContext bill, string? voucherCode)
         {
             if (string.IsNullOrWhiteSpace(voucherCode))
             {
                 return;
             }
 
-            if (order.DiscountAmount > 0)
+            if (bill.Orders.Any(x => x.DiscountAmount > 0))
             {
-                throw new BusinessRuleException("This order already has a discount.");
+                throw new BusinessRuleException("This bill already has a discount.");
             }
 
-            var voucher = await _branchSettingsRepository.GetPaperVoucherByCodeAsync(order.BranchId, voucherCode);
+            var voucher = await _branchSettingsRepository.GetPaperVoucherByCodeAsync(bill.PrimaryOrder.BranchId, voucherCode);
             if (voucher is null || !voucher.IsActive)
             {
                 throw new NotFoundException("Voucher not found or inactive.");
@@ -213,10 +300,10 @@ namespace ScanNow.Application.Features.Cashier
                 throw new BusinessRuleException("Voucher has no remaining usage.");
             }
 
-            var grossAmount = order.SubTotal + order.VatAmount + order.ServiceChargeAmount;
+            var grossAmount = bill.Orders.Sum(GetOrderGrossAmount);
             if (grossAmount < voucher.MinOrderAmount)
             {
-                throw new BusinessRuleException("Order does not meet voucher minimum amount.");
+                throw new BusinessRuleException("Bill does not meet voucher minimum amount.");
             }
 
             var discount = voucher.DiscountType == DiscountType.PERCENT
@@ -229,37 +316,51 @@ namespace ScanNow.Application.Features.Cashier
             }
 
             discount = Math.Min(discount, grossAmount);
-            order.DiscountAmount = discount;
-            order.TotalAmount = grossAmount - discount;
-            order.UpdatedAt = now;
+
+            var remainingDiscount = discount;
+            foreach (var order in bill.Orders)
+            {
+                var orderGrossAmount = GetOrderGrossAmount(order);
+                var appliedDiscount = Math.Min(remainingDiscount, orderGrossAmount);
+                order.DiscountAmount = appliedDiscount;
+                order.TotalAmount = orderGrossAmount - appliedDiscount;
+                order.UpdatedAt = now;
+                remainingDiscount -= appliedDiscount;
+
+                if (remainingDiscount <= 0)
+                {
+                    break;
+                }
+            }
+
             voucher.UsedCount += 1;
             voucher.UpdatedAt = now;
         }
 
-        private async Task<CashierPaymentResponse> HandleCashAsync(OrderEntity order, decimal? amountReceived)
+        private async Task<CashierPaymentResponse> HandleCashAsync(CashierBillContext bill, decimal? amountReceived)
         {
-            var now = DateTime.UtcNow;
-            await _orderRepository.MarkPendingPaymentsFailedAsync(order.Id, now);
-
             if (!amountReceived.HasValue)
             {
                 throw new BusinessRuleException("Amount received is required for cash payment.");
             }
 
-            if (amountReceived.Value < order.TotalAmount)
+            if (amountReceived.Value < bill.TotalAmount)
             {
-                throw new BusinessRuleException("Amount received must be greater than or equal to order total.");
+                throw new BusinessRuleException("Amount received must be greater than or equal to bill total.");
             }
+
+            var now = DateTime.UtcNow;
+            await FailPendingPaymentsAsync(bill, now);
 
             var payment = new Payment
             {
                 Id = Guid.NewGuid(),
-                OrderId = order.Id,
-                Amount = order.TotalAmount,
+                OrderId = bill.PrimaryOrder.Id,
+                Amount = bill.TotalAmount,
                 Method = PaymentMethod.CASH,
                 Status = PaymentStatus.SUCCESS,
                 AmountReceived = amountReceived.Value,
-                ChangeAmount = amountReceived.Value - order.TotalAmount,
+                ChangeAmount = amountReceived.Value - bill.TotalAmount,
                 PaidAt = now,
                 ProcessedById = _currentUserService.UserId,
                 CreatedAt = now,
@@ -267,26 +368,31 @@ namespace ScanNow.Application.Features.Cashier
             };
 
             await _orderRepository.AddPaymentAsync(payment);
-            await _orderRepository.MarkOrderCompletedAsync(order.Id, now);
+            await _orderRepository.MarkOrdersCompletedAsync(bill.OrderIds, now);
 
             await _unitOfWork.SaveChangesAsync();
 
-            order.Status = OrderStatus.Completed;
-            order.CompletedAt = now;
-            order.UpdatedAt = now;
-            if (order.Payments.All(x => x.Id != payment.Id))
+            foreach (var order in bill.Orders)
             {
-                order.Payments.Add(payment);
+                order.Status = OrderStatus.Completed;
+                order.CompletedAt = now;
+                order.UpdatedAt = now;
             }
 
-            await _publisher.PublishOrderUpdatedAsync(CustomerOrderMapper.Map(order));
+            if (bill.PrimaryOrder.Payments.All(x => x.Id != payment.Id))
+            {
+                bill.PrimaryOrder.Payments.Add(payment);
+            }
 
-            return BuildPaymentResponse(order, payment);
+            await PublishOrderUpdatesAsync(bill.Orders);
+
+            return BuildPaymentResponse(bill, payment);
         }
 
-        private async Task<CashierPaymentResponse> HandlePayOsAsync(OrderEntity order)
+        private async Task<CashierPaymentResponse> HandlePayOsAsync(CashierBillContext bill)
         {
-            var config = await _branchSettingsRepository.GetPaymentConfigAsync(order.BranchId);
+            var primaryOrder = bill.PrimaryOrder;
+            var config = await _branchSettingsRepository.GetPaymentConfigAsync(primaryOrder.BranchId);
             if (config is null
                 || !config.PayOsEnabled
                 || string.IsNullOrWhiteSpace(config.PayOsClientId)
@@ -296,31 +402,33 @@ namespace ScanNow.Application.Features.Cashier
                 throw new BusinessRuleException("PayOS is not configured for this branch. Please use cash payment.");
             }
 
-            var existingPayOs = order.Payments
-                .Where(x => x.Method == PaymentMethod.PAYOS && x.Status == PaymentStatus.PENDING)
-                .OrderByDescending(x => x.CreatedAt)
-                .FirstOrDefault();
+            var existingPayOs = GetLatestPayment(bill.Orders, PaymentStatus.PENDING, PaymentMethod.PAYOS);
 
             if (existingPayOs is not null)
             {
-                return BuildPaymentResponse(order, existingPayOs);
+                if (existingPayOs.Amount == bill.TotalAmount)
+                {
+                    return BuildPaymentResponse(bill, existingPayOs);
+                }
+
+                await FailPendingPaymentsAsync(bill, DateTime.UtcNow);
             }
 
-            var orderCode = GenerateOrderCode(order);
+            var orderCode = GenerateOrderCode(primaryOrder);
             var expiresAt = DateTimeOffset.UtcNow.AddMinutes(10);
             var linkResult = await _paymentService.CreatePaymentLinkAsync(new CreatePaymentLinkInput
             {
                 OrderCode = orderCode,
-                Amount = (long)order.TotalAmount,
+                Amount = (long)bill.TotalAmount,
                 Description = BuildPaymentDescription(orderCode),
-                BuyerName = order.CustomerName,
-                BuyerPhone = order.CustomerPhone,
+                BuyerName = primaryOrder.CustomerName,
+                BuyerPhone = primaryOrder.CustomerPhone,
                 ExpiredAtUnixSeconds = (int)expiresAt.ToUnixTimeSeconds(),
                 PayOsClientId = config.PayOsClientId,
                 PayOsApiKey = config.PayOsApiKey,
                 PayOsChecksumKey = config.PayOsChecksumKey,
-                ReturnUrl = BuildCashierPaymentRedirectUrl("return", order),
-                CancelUrl = BuildCashierPaymentRedirectUrl("cancel", order)
+                ReturnUrl = BuildCashierPaymentRedirectUrl("return", primaryOrder),
+                CancelUrl = BuildCashierPaymentRedirectUrl("cancel", primaryOrder)
             });
 
             if (!linkResult.Success)
@@ -332,29 +440,58 @@ namespace ScanNow.Application.Features.Cashier
             var payment = new Payment
             {
                 Id = Guid.NewGuid(),
-                OrderId = order.Id,
-                Amount = order.TotalAmount,
+                OrderId = primaryOrder.Id,
+                Amount = bill.TotalAmount,
                 Method = PaymentMethod.PAYOS,
                 Status = PaymentStatus.PENDING,
                 GatewayOrderId = orderCode.ToString(),
                 PaymentUrl = linkResult.CheckoutUrl,
-                GatewayResponseData = SerializePayOsSnapshot(linkResult, expiresAt.UtcDateTime),
+                GatewayResponseData = SerializePayOsSnapshot(linkResult, expiresAt.UtcDateTime, bill),
                 ProcessedById = _currentUserService.UserId,
                 CreatedAt = now,
                 UpdatedAt = now
             };
 
             await _orderRepository.AddPaymentAsync(payment);
-            await _orderRepository.TouchOrderAsync(order.Id, now);
+            foreach (var orderId in bill.OrderIds)
+            {
+                await _orderRepository.TouchOrderAsync(orderId, now);
+            }
             await _unitOfWork.SaveChangesAsync();
 
-            order.UpdatedAt = now;
-            if (order.Payments.All(x => x.Id != payment.Id))
+            foreach (var order in bill.Orders)
             {
-                order.Payments.Add(payment);
+                order.UpdatedAt = now;
             }
 
-            return BuildPaymentResponse(order, payment, linkResult);
+            if (primaryOrder.Payments.All(x => x.Id != payment.Id))
+            {
+                primaryOrder.Payments.Add(payment);
+            }
+
+            return BuildPaymentResponse(bill, payment, linkResult);
+        }
+
+        private async Task FailPendingPaymentsAsync(CashierBillContext bill, DateTime updatedAt)
+        {
+            foreach (var order in bill.Orders)
+            {
+                await _orderRepository.MarkPendingPaymentsFailedAsync(order.Id, updatedAt);
+            }
+
+            foreach (var payment in bill.Orders.SelectMany(x => x.Payments).Where(x => x.Status == PaymentStatus.PENDING))
+            {
+                payment.Status = PaymentStatus.FAILED;
+                payment.UpdatedAt = updatedAt;
+            }
+        }
+
+        private async Task PublishOrderUpdatesAsync(IEnumerable<OrderEntity> orders)
+        {
+            foreach (var order in orders)
+            {
+                await _publisher.PublishOrderUpdatedAsync(CustomerOrderMapper.Map(order));
+            }
         }
 
         private async Task EnsureCanAccessBranchAsync(Guid branchId)
@@ -382,58 +519,134 @@ namespace ScanNow.Application.Features.Cashier
             throw new ForbiddenException();
         }
 
-        private static IEnumerable<OrderEntity> ApplyFilters(IEnumerable<OrderEntity> orders, CashierOrderQuery query)
+        private static IEnumerable<CashierBillContext> ApplyFilters(IEnumerable<CashierBillContext> bills, CashierOrderQuery query)
         {
             var status = query.Status?.Trim().ToLowerInvariant();
             if (status == "active" || string.IsNullOrWhiteSpace(status))
             {
-                orders = orders.Where(x => x.Status != OrderStatus.Completed && x.Status != OrderStatus.Cancelled);
+                bills = bills.Where(x => x.Status != OrderStatus.Completed && x.Status != OrderStatus.Cancelled);
             }
             else if (status == "paid")
             {
-                orders = orders.Where(x => x.Status == OrderStatus.Completed || GetLatestPayment(x, PaymentStatus.SUCCESS) is not null);
+                bills = bills.Where(x => x.Status == OrderStatus.Completed || GetLatestPayment(x.Orders, PaymentStatus.SUCCESS) is not null);
             }
 
             if (!string.IsNullOrWhiteSpace(query.Search))
             {
                 var search = query.Search.Trim();
-                orders = orders.Where(x =>
-                    x.OrderNumber.Contains(search, StringComparison.OrdinalIgnoreCase)
-                    || (x.Table?.TableNumber.Contains(search, StringComparison.OrdinalIgnoreCase) == true)
-                    || (x.CustomerName?.Contains(search, StringComparison.OrdinalIgnoreCase) == true)
-                    || (x.CustomerPhone?.Contains(search, StringComparison.OrdinalIgnoreCase) == true)
-                    || x.QrSessions.Any(session => session.SessionToken.Contains(search, StringComparison.OrdinalIgnoreCase)));
+                bills = bills.Where(bill =>
+                    (bill.SessionCode?.Contains(search, StringComparison.OrdinalIgnoreCase) == true)
+                    || bill.Orders.Any(x =>
+                        x.OrderNumber.Contains(search, StringComparison.OrdinalIgnoreCase)
+                        || (x.Table?.TableNumber.Contains(search, StringComparison.OrdinalIgnoreCase) == true)
+                        || (x.CustomerName?.Contains(search, StringComparison.OrdinalIgnoreCase) == true)
+                        || (x.CustomerPhone?.Contains(search, StringComparison.OrdinalIgnoreCase) == true)));
             }
 
-            return orders;
+            return bills;
         }
 
-        private static IEnumerable<OrderEntity> ApplySort(IEnumerable<OrderEntity> orders, CashierOrderQuery query)
+        private static IEnumerable<CashierBillContext> ApplySort(IEnumerable<CashierBillContext> bills, CashierOrderQuery query)
         {
             var desc = query.SortDirection?.Equals("desc", StringComparison.OrdinalIgnoreCase) == true;
             return (query.SortBy ?? "createdAt").Trim().ToLowerInvariant() switch
             {
-                "tablenumber" => desc ? orders.OrderByDescending(x => x.Table?.TableNumber) : orders.OrderBy(x => x.Table?.TableNumber),
-                "totalamount" => desc ? orders.OrderByDescending(x => x.TotalAmount) : orders.OrderBy(x => x.TotalAmount),
-                "status" => desc ? orders.OrderByDescending(x => x.Status) : orders.OrderBy(x => x.Status),
-                _ => desc ? orders.OrderByDescending(x => x.CreatedAt) : orders.OrderBy(x => x.CreatedAt)
+                "tablenumber" => desc ? bills.OrderByDescending(x => x.TableNumber) : bills.OrderBy(x => x.TableNumber),
+                "totalamount" => desc ? bills.OrderByDescending(x => x.TotalAmount) : bills.OrderBy(x => x.TotalAmount),
+                "status" => desc ? bills.OrderByDescending(x => x.Status) : bills.OrderBy(x => x.Status),
+                _ => desc ? bills.OrderByDescending(x => x.LastOrderCreatedAt) : bills.OrderBy(x => x.LastOrderCreatedAt)
             };
         }
 
         private static Payment? GetLatestPayment(OrderEntity order, PaymentStatus? status = null)
         {
-            var payments = status.HasValue
-                ? order.Payments.Where(x => x.Status == status.Value)
-                : order.Payments;
+            return GetLatestPayment(new[] { order }, status);
+        }
+
+        private static Payment? GetLatestPayment(IEnumerable<OrderEntity> orders, PaymentStatus? status = null, PaymentMethod? method = null)
+        {
+            var payments = orders.SelectMany(x => x.Payments);
+
+            if (status.HasValue)
+            {
+                payments = payments.Where(x => x.Status == status.Value);
+            }
+
+            if (method.HasValue)
+            {
+                payments = payments.Where(x => x.Method == method.Value);
+            }
 
             return payments
                 .OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
                 .FirstOrDefault();
         }
 
-        private static CashierPaymentResponse BuildPaymentResponse(OrderEntity order, Payment payment, PaymentLinkResult? linkResult = null)
+        private static CashierBillResponse BuildBillResponse(CashierBillContext bill)
+        {
+            var latestPayment = GetLatestPayment(bill.Orders);
+            return new CashierBillResponse
+            {
+                PrimaryOrderId = bill.PrimaryOrder.Id,
+                SessionCode = bill.SessionCode,
+                IsGroupedBill = bill.IsGroupedBill,
+                OrderIds = bill.OrderIds,
+                SubTotal = bill.SubTotal,
+                VatAmount = bill.VatAmount,
+                ServiceChargeAmount = bill.ServiceChargeAmount,
+                DiscountAmount = bill.DiscountAmount,
+                TotalAmount = bill.TotalAmount,
+                PaymentId = latestPayment?.Id,
+                PaymentMethod = latestPayment?.Method,
+                PaymentStatus = latestPayment?.Status,
+                AmountReceived = latestPayment?.AmountReceived,
+                ChangeAmount = latestPayment?.ChangeAmount,
+                PaidAt = latestPayment?.PaidAt,
+                Orders = bill.Orders.Select(order => MapOrder(order, bill.SessionCode)).ToList()
+            };
+        }
+
+        private static TableOrderHistoryResponse BuildOrderHistoryResponse(CashierBillContext bill, bool hideOrderNumber = false)
+        {
+            var latestPayment = GetLatestPayment(bill.Orders);
+            var primaryOrder = bill.PrimaryOrder;
+
+            return new TableOrderHistoryResponse
+            {
+                OrderId = primaryOrder.Id,
+                PrimaryOrderId = primaryOrder.Id,
+                IsGroupedBill = bill.IsGroupedBill,
+                OrderIds = bill.OrderIds,
+                OrderNumber = hideOrderNumber ? string.Empty : primaryOrder.OrderNumber,
+                BranchId = primaryOrder.BranchId,
+                TableId = primaryOrder.TableId,
+                TableNumber = bill.TableNumber,
+                SessionCode = bill.SessionCode,
+                CustomerName = primaryOrder.CustomerName,
+                CustomerPhone = primaryOrder.CustomerPhone,
+                CustomerNote = BuildGroupedCustomerNote(bill),
+                SubTotal = bill.SubTotal,
+                VatAmount = bill.VatAmount,
+                ServiceChargeAmount = bill.ServiceChargeAmount,
+                DiscountAmount = bill.DiscountAmount,
+                TotalAmount = bill.TotalAmount,
+                Status = bill.Status,
+                PaymentMethod = latestPayment?.Method.ToString(),
+                PaymentStatus = latestPayment?.Status.ToString(),
+                AmountReceived = latestPayment?.AmountReceived,
+                ChangeAmount = latestPayment?.ChangeAmount,
+                PaidAt = latestPayment?.PaidAt,
+                CreatedAt = bill.FirstOrderCreatedAt,
+                UpdatedAt = bill.LastUpdatedAt,
+                Items = BuildGroupedItems(bill.Orders),
+                Orders = bill.Orders.Select(order => MapOrder(order, bill.SessionCode)).ToList()
+            };
+        }
+
+        private static CashierPaymentResponse BuildPaymentResponse(CashierBillContext bill, Payment payment, PaymentLinkResult? linkResult = null)
         {
             var snapshot = DeserializePayOsSnapshot(payment.GatewayResponseData);
+            var order = bill.PrimaryOrder;
             return new CashierPaymentResponse
             {
                 OrderId = order.Id,
@@ -446,16 +659,17 @@ namespace ScanNow.Application.Features.Cashier
                 Bin = linkResult?.Bin ?? snapshot?.Bin,
                 AccountNumber = linkResult?.AccountNumber ?? snapshot?.AccountNumber,
                 AccountName = linkResult?.AccountName ?? snapshot?.AccountName,
-                Amount = linkResult?.Amount ?? snapshot?.Amount,
+                Amount = linkResult?.Amount ?? snapshot?.Amount ?? (payment.Amount > 0 ? (long?)payment.Amount : null),
                 AmountReceived = payment.AmountReceived,
                 ChangeAmount = payment.ChangeAmount,
                 Description = linkResult?.Description ?? snapshot?.Description,
                 PaymentExpiresAt = snapshot?.ExpiresAtUtc,
-                Order = MapOrder(order)
+                Order = BuildOrderHistoryResponse(bill),
+                Bill = BuildBillResponse(bill)
             };
         }
 
-        private static string SerializePayOsSnapshot(PaymentLinkResult linkResult, DateTime expiresAtUtc)
+        private static string SerializePayOsSnapshot(PaymentLinkResult linkResult, DateTime expiresAtUtc, CashierBillContext bill)
         {
             return JsonSerializer.Serialize(new PayOsPaymentSnapshot
             {
@@ -466,7 +680,9 @@ namespace ScanNow.Application.Features.Cashier
                 AccountName = linkResult.AccountName,
                 Amount = linkResult.Amount,
                 Description = linkResult.Description,
-                ExpiresAtUtc = expiresAtUtc
+                ExpiresAtUtc = expiresAtUtc,
+                CoveredOrderIds = bill.OrderIds.ToArray(),
+                SessionCode = bill.SessionCode
             });
         }
 
@@ -497,19 +713,206 @@ namespace ScanNow.Application.Features.Cashier
             public long? Amount { get; set; }
             public string? Description { get; set; }
             public DateTime? ExpiresAtUtc { get; set; }
+            public Guid[]? CoveredOrderIds { get; set; }
+            public string? SessionCode { get; set; }
         }
 
-        private static TableOrderHistoryResponse MapOrder(OrderEntity order)
+        private sealed class CashierBillContext
+        {
+            public CashierBillContext(IEnumerable<OrderEntity> orders, string? sessionCode = null)
+            {
+                Orders = orders.OrderBy(x => x.CreatedAt).ToList();
+                SessionCode = sessionCode ?? ResolveSessionCode(Orders);
+            }
+
+            public List<OrderEntity> Orders { get; }
+            public OrderEntity PrimaryOrder => Orders[0];
+            public string? SessionCode { get; }
+            public bool IsGroupedBill => Orders.Count > 1;
+            public List<Guid> OrderIds => Orders.Select(x => x.Id).ToList();
+            public string? TableNumber => PrimaryOrder.Table?.TableNumber;
+            public DateTime FirstOrderCreatedAt => Orders.Min(x => x.CreatedAt);
+            public DateTime LastOrderCreatedAt => Orders.Max(x => x.CreatedAt);
+            public DateTime? LastUpdatedAt => Orders
+                .Select(x => x.UpdatedAt ?? x.CreatedAt)
+                .OrderByDescending(x => x)
+                .FirstOrDefault();
+            public OrderStatus Status => CalculateBillStatus(Orders);
+            public decimal SubTotal => Orders.Sum(x => x.SubTotal);
+            public decimal VatAmount => Orders.Sum(x => x.VatAmount);
+            public decimal ServiceChargeAmount => Orders.Sum(x => x.ServiceChargeAmount);
+            public decimal DiscountAmount => Orders.Sum(x => x.DiscountAmount);
+            public decimal TotalAmount => Orders.Sum(x => x.TotalAmount);
+        }
+
+        private static List<CashierBillContext> BuildCashierBillContexts(
+            IEnumerable<OrderEntity> orders,
+            IEnumerable<QrSession> sessions)
+        {
+            var sessionList = sessions
+                .OrderByDescending(x => x.CreatedAt)
+                .ToList();
+            var groups = new Dictionary<string, (string? SessionCode, List<OrderEntity> Orders)>();
+
+            foreach (var order in orders.OrderBy(x => x.CreatedAt))
+            {
+                var session = order.Status == OrderStatus.Cancelled
+                    ? null
+                    : FindSessionForOrder(order, sessionList);
+                var key = session is null ? $"order:{order.Id}" : $"session:{session.Id}";
+
+                if (!groups.TryGetValue(key, out var group))
+                {
+                    group = (session?.SessionToken, new List<OrderEntity>());
+                    groups[key] = group;
+                }
+
+                group.Orders.Add(order);
+            }
+
+            return groups.Values
+                .Where(x => x.Orders.Count > 0)
+                .Select(x => new CashierBillContext(x.Orders, x.SessionCode))
+                .ToList();
+        }
+
+        private static QrSession? FindSessionForOrder(OrderEntity order, IEnumerable<QrSession> sessions)
+        {
+            if (!order.TableId.HasValue)
+            {
+                return null;
+            }
+
+            return sessions.FirstOrDefault(session =>
+                session.BranchId == order.BranchId
+                && session.TableId == order.TableId.Value
+                && order.CreatedAt >= session.CreatedAt
+                && order.CreatedAt <= session.ExpiresAt);
+        }
+
+        private static string? ResolveSessionCode(IEnumerable<OrderEntity> orders)
+        {
+            var now = DateTime.UtcNow;
+            return orders
+                .SelectMany(x => x.QrSessions)
+                .Where(x => x.IsActive && x.ExpiresAt > now)
+                .OrderByDescending(x => x.CreatedAt)
+                .FirstOrDefault()
+                ?.SessionToken;
+        }
+
+        private static OrderStatus CalculateBillStatus(IEnumerable<OrderEntity> orders)
+        {
+            var orderList = orders.ToList();
+            if (orderList.Count == 0)
+            {
+                return OrderStatus.Cancelled;
+            }
+
+            if (orderList.All(x => x.Status == OrderStatus.Completed))
+            {
+                return OrderStatus.Completed;
+            }
+
+            if (orderList.All(x => x.Status == OrderStatus.Cancelled))
+            {
+                return OrderStatus.Cancelled;
+            }
+
+            return orderList
+                .OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
+                .First()
+                .Status;
+        }
+
+        private static string? BuildGroupedCustomerNote(CashierBillContext bill)
+        {
+            var notes = bill.Orders
+                .Select(x => x.CustomerNote)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x!.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return notes.Count == 0 ? null : string.Join(" | ", notes);
+        }
+
+        private static List<CustomerOrderItemResponse> BuildGroupedItems(IEnumerable<OrderEntity> orders)
+        {
+            return orders
+                .SelectMany(order => order.Items)
+                .OrderBy(item => item.CreatedAt)
+                .GroupBy(item => new
+                {
+                    item.MenuItemId,
+                    item.MenuItemName,
+                    item.UnitPrice,
+                    Note = item.Note?.Trim() ?? string.Empty
+                })
+                .Select(group =>
+                {
+                    var first = group.First();
+                    return new CustomerOrderItemResponse
+                    {
+                        OrderItemId = first.Id,
+                        MenuItemId = first.MenuItemId,
+                        MenuItemName = first.MenuItemName,
+                        UnitPrice = first.UnitPrice,
+                        Quantity = group.Sum(x => x.Quantity),
+                        SubTotal = group.Sum(x => x.SubTotal),
+                        Note = string.IsNullOrWhiteSpace(first.Note) ? null : first.Note,
+                        Status = CalculateItemStatus(group),
+                        EstimatedCookingMinutes = first.EstimatedCookingMinutes
+                    };
+                })
+                .ToList();
+        }
+
+        private static OrderItemStatus CalculateItemStatus(IEnumerable<OrderItem> items)
+        {
+            var itemList = items.ToList();
+            if (itemList.All(x => x.Status == OrderItemStatus.Served))
+            {
+                return OrderItemStatus.Served;
+            }
+
+            if (itemList.All(x => x.Status == OrderItemStatus.Cancelled))
+            {
+                return OrderItemStatus.Cancelled;
+            }
+
+            return itemList
+                .OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
+                .First()
+                .Status;
+        }
+
+        private static IEnumerable<Guid> GetCoveredOrderIds(PayOsPaymentSnapshot? snapshot, CashierBillContext bill)
+        {
+            return snapshot?.CoveredOrderIds?.Length > 0
+                ? snapshot.CoveredOrderIds.Distinct()
+                : bill.OrderIds;
+        }
+
+        private static decimal GetOrderGrossAmount(OrderEntity order)
+        {
+            return order.SubTotal + order.VatAmount + order.ServiceChargeAmount;
+        }
+
+        private static TableOrderHistoryResponse MapOrder(OrderEntity order, string? sessionCode = null)
         {
             var latestPayment = GetLatestPayment(order);
             return new TableOrderHistoryResponse
             {
                 OrderId = order.Id,
+                PrimaryOrderId = order.Id,
+                IsGroupedBill = false,
+                OrderIds = new List<Guid> { order.Id },
                 OrderNumber = order.OrderNumber,
                 BranchId = order.BranchId,
                 TableId = order.TableId,
                 TableNumber = order.Table?.TableNumber,
-                SessionCode = order.QrSessions.OrderByDescending(x => x.CreatedAt).FirstOrDefault()?.SessionToken,
+                SessionCode = sessionCode ?? order.QrSessions.OrderByDescending(x => x.CreatedAt).FirstOrDefault()?.SessionToken,
                 CustomerName = order.CustomerName,
                 CustomerPhone = order.CustomerPhone,
                 CustomerNote = order.CustomerNote,
